@@ -105,10 +105,11 @@ while ( <FILE> ) {
 
                          $monitoredNodes[scalar(@monitoredNodes)] = (
                              {
-                                 name => $name,
-                                 cpu  => $cpu,
-                                 mem  => $mem,
-                                 disk => $disk,
+                                 name  => $name,
+                                 cpu   => $cpu,
+                                 mem   => $mem,
+                                 disk  => $disk,
+                                 alive => 0,
                              },
                          );
                               
@@ -129,9 +130,6 @@ while ( <FILE> ) {
          }
     }
 }
-
-print $monitoredNodes[0]->{name};
-die;
 
 for($a = 0; $a < scalar(@monitorNodes); $a++) {
     $host = $monitorNodes[$a]->{server};    
@@ -168,19 +166,28 @@ die "Could not connect to any server !" unless $connected;
 # list all ressources of the cluster
 my $objects = $pve->get('/cluster/resources');
 
-print "Found " .  @$nodes . " nodes:\n";
+print "Found " .  @$objects . " nodes:\n";
 
 foreach my $item( @$objects ) { 
-    # fields are in $item->{Year}, $item->{Quarter}, etc.
-    print "id: " . $item->{id} . "\n"; 
-    print "cpu: " . $item->{cpu} . "\n";
-    print "disk: " . $item->{disk} . "\n";
-    print "level: " . $item->{level} . "\n";
-    print "maxcpu: " . $item->{maxcpu} . "\n";
-    print "maxdisk: " . $item->{maxdisk} . "\n";
-    print "maxmem: " . $item->{maxmem} . "\n";
-    print "mem: " . $item->{mem} . "\n";
-    print "node: " . $item->{node} . "\n";
-    print "type: " . $item->{type} . "\n";
-    print "uptime: " . $item->{uptime} . "\n";
+    switch ($item->{type}) {
+        case "node" {
+            # loop the node array to see if that one is monitored
+            for($a = 0; $a < scalar(@monitoredNodes); $a++) {
+                next unless ($item->{node} eq $monitoredNodes[$a]->{name});
+                $monitoredNodes[$a]->{alive} = 1;
+            }
+        }
+        case "storage" {
+            next;
+        }
+        case "openvz" {
+            next;
+        }
+        case "qemu" {
+            next;
+        }
+    }
 }
+
+
+# Finally, loop the monitored objects arrays to report situation
