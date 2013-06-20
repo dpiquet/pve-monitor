@@ -20,7 +20,7 @@ use Data::Dumper;
 use Getopt::Long;
 use Switch;
 
-my $debug = 1;
+my $debug = 0;
 my $timeout = 5;
 my $configurationFile = './pve-monitor.conf';
 
@@ -31,29 +31,7 @@ my %status = (
     'unknown'  => 3,
 );
 
-my @monitorNodes= (
-    {
-        server    =>  '192.168.1.1',
-        port      =>  '8006',
-        username  =>  'monitor',
-        password  =>  'd0f3ca',
-        realm     =>  'pve',
-    },
-    {
-        server    =>  '192.168.1.254',
-        port      =>  '8006',
-        username  =>  'monitor',
-        password  =>  'd0f3ca',
-        realm     =>  'pve',
-    },
-    {
-        server    =>  '192.168.1.253',
-        port      =>  '8006',
-        username  =>  'monitor',
-        password  =>  'd0f3ca',
-        realm     =>  'pve',
-    },
-);
+my %rstatus = reverse %status;
 
 my %arguments = (
     'nodes'    => undef,
@@ -100,12 +78,18 @@ while ( <FILE> ) {
                  my $critCpu  = undef;
                  my $critMem  = undef;
                  my $critDisk = undef;
+                 my $nAddr    = undef;
+                 my $nPort    = 8006;
+                 my $nUser    = undef;
+                 my $nPwd     = undef;
+                 my $nRealm   = 'pam';
 
                  while (<FILE>) {
                      my $objLine = $_;
 
                      next if ( $objLine =~ m/^#/i );
-                     if ( $objLine =~ m/(\w+)\s+(\w+)\s+(\w+)/i ) {
+                     if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)(\s+([\w+\.]))?/i ) {
+
                          switch ($1) {
                              case "cpu" {
                                  $warnCpu = $2;
@@ -119,6 +103,21 @@ while ( <FILE> ) {
                                  $warnDisk = $2;
                                  $critDisk = $3;
                              }
+                             case "address" {
+                                 $nAddr = $2;
+                             }
+                             case "port" {
+                                 $nPort = $2;
+                             }
+                             case "monitor_account" {
+                                 $nUser = $2;
+                             }
+                             case "monitor_password" {
+                                 $nPwd = $2;
+                             }
+                             case "realm" {
+                                 $nRealm = $2;
+                             }
                              else { die "Invalid token $1 in $name definition !\n"; }
                          }
                      }
@@ -128,9 +127,13 @@ while ( <FILE> ) {
 
                          print "Saving node $name =)\n";
 
-                         $monitoredNodes[scalar(@monitoredNodes)] = (
-                             {
+                         $monitoredNodes[scalar(@monitoredNodes)] = ({
                                  name         => $name,
+                                 address      => $nAddr,
+                                 port         => $nPort,
+                                 username     => $nUser,
+                                 realm        => $nRealm,
+                                 password     => $nPwd,
                                  warn_cpu     => $warnCpu,
                                  warn_mem     => $warnMem,
                                  warn_disk    => $warnDisk,
@@ -169,15 +172,15 @@ while ( <FILE> ) {
                          switch ($1) {
                              case "cpu" {
                                  $warnCpu = $2;
-                                 $critCpu = $3;
+                                 $critCpu = $4;
                              }
                              case "mem" {
                                  $warnMem = $2;
-                                 $critMem = $3;
+                                 $critMem = $4;
                              }
                              case "disk" {
                                  $warnDisk = $2;
-                                 $critDisk = $3;
+                                 $critDisk = $4;
                              }
                              else { die "Invalid token $1 in $name definition !\n"; }
                          }
@@ -188,8 +191,7 @@ while ( <FILE> ) {
 
                          print "Saving openvz $name =)\n";
 
-                         $monitoredOpenvz[scalar(@monitoredOpenvz)] = (
-                             {
+                         $monitoredOpenvz[scalar(@monitoredOpenvz)] = ({
                                  name         => $name,
                                  warn_cpu     => $warnCpu,
                                  warn_mem     => $warnMem,
@@ -203,7 +205,7 @@ while ( <FILE> ) {
                                  curcpu       => undef,
                                  status       => $status{unknown},
                              },
-                        );
+                         );
                      }
                  }
 
@@ -217,11 +219,14 @@ while ( <FILE> ) {
     }
 }
 
-for($a = 0; $a < scalar(@monitorNodes); $a++) {
-    $host     = $monitorNodes[$a]->{server};    
-    $username = $monitorNodes[$a]->{username};
-    $password = $monitorNodes[$a]->{password};
-    $realm    = $monitorNodes[$a]->{realm};
+close(FILE);
+
+for($a = 0; $a < scalar(@monitoredNodes); $a++) {
+    my $host     = $monitoredNodes[$a]->{address} or next;
+    my $port     = $monitoredNodes[$a]->{port} or next;
+    my $username = $monitoredNodes[$a]->{username} or next;
+    my $password = $monitoredNodes[$a]->{password} or next;
+    my $realm    = $monitoredNodes[$a]->{realm} or next;
 
     print "Trying " . $host . "...\n"
       if $debug;
@@ -262,6 +267,7 @@ foreach my $item( @$objects ) {
             foreach my $mnode( @monitoredNodes ) {
                 next unless ($item->{node} eq $mnode->{name});
                 $mnode->{alive}   = 1; # not verified...
+                $mnode->{status}  = $status{ok};
                 $mnode->{curmem}  = ( $item->{mem} / $item->{maxmem} );
                 $mnode->{curdisk} = ( $item->{disk} / $item->{maxdisk} );
                 $mnode->{curcpu}  = ( $item->{cpu} / $item->{maxcpu} );
@@ -282,8 +288,9 @@ foreach my $item( @$objects ) {
 
 # Finally, loop the monitored objects arrays to report situation
 
-if (defined $arguments{node}) {
+if (defined $arguments{nodes}) {
     my $statusScore = 0;
+    my $workingNodes = 0;
 
     my $reportSummary = '';
 
@@ -291,40 +298,43 @@ if (defined $arguments{node}) {
         $statusScore += $mnode->{status};
         
         $statusScore += $status{warning}
-          if (($mnode->{curmem} > $mnode->{warn_mem})
-          and (defined $mnode->{warn_mem}));
+          if ((defined $mnode->{warn_mem})
+          and ($mnode->{curmem} > $mnode->{warn_mem}));
 
         $statusScore += $status{critical}
-          if (($mnode->{curmem} > $mnode->{crit_mem})
-          and (defined $mnode->{critmem}));
+          if ((defined $mnode->{critmem})
+          and ($mnode->{curmem} > $mnode->{crit_mem}));
 
         $statusScore += $status{warning}
-          if (($mnode->{curdisk} > $mnode->{warn_disk})
-          and (defined $mnode->{warn_disk}));
+          if ((defined $mnode->{warn_disk})
+          and ($mnode->{curdisk} > $mnode->{warn_disk}));
 
         $statusScore += $status{critical}
-          if (($mnode->{curdisk} > $mnode->{crit_disk})
-          and (defined $mnode->{crit_disk}));
+          if ((defined $mnode->{crit_disk})
+          and ($mnode->{curdisk} > $mnode->{crit_disk}));
 
         $statusScore += $status{warning}
-          if (($mnode->{curcpu} > $mnode->{warn_cpu})
-          and (defined $mnode->{warn_cpu}));
+          if ((defined $mnode->{warn_cpu})
+          and ($mnode->{curcpu} > $mnode->{warn_cpu}));
 
         $statusScore += $status{warning}
-          if (($mnode->{curcpu} > $mnode->{warn_cpu})
-          and (defined $mnode->{warn_cpu}));
+          if ((defined $mnode->{warn_cpu})
+          and ($mnode->{curcpu} > $mnode->{warn_cpu}));
 
-        $reportSummary .= "VM $mnode->{name} $mnode->{status} : " .
-                          "cpu $mnode->{curcpu}, " . 
-                          "mem $mnode->{curmem}, " . 
-                          "disk $mnode->{curdisk}\n";
+        if ($mnode->{status} ne $status{unknown}) {
+            $reportSummary .= "VM $mnode->{name} $rstatus{$mnode->{status}} : " .
+                              "cpu $mnode->{curcpu}, " . 
+                              "mem $mnode->{curmem}, " . 
+                              "disk $mnode->{curdisk}\n";
+        }
+        else { $reportSummary .= "VM $mnode->{name} is in status $status{unknown}\n"; }
     }
 
     $statusScore = $status{critical}
       if ( $statusScore > $status{unknown});
 
-    print "OPENVZ $statusScore  <working nodes> / " . scalar(@monitoredNodes) . "\n" . $reportSummary;
-    return $statusScore;
+    print "OPENVZ $statusScore  $workingNodes / " . scalar(@monitoredNodes) . "\n" . $reportSummary;
+    exit $statusScore;
 }
 
 if (defined $arguments{openvz}) {
@@ -333,7 +343,7 @@ if (defined $arguments{openvz}) {
     }
 }
 
-if (defined $arguments{storage}) {
+if (defined $arguments{storages}) {
     print "not implemented yet";
 }
 
