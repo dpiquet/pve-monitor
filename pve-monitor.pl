@@ -125,8 +125,6 @@ while ( <FILE> ) {
                          # check object requirements are met, save it, break
                          die "Invalid configuration !" unless defined $name;
 
-                         print "Saving node $name =)\n";
-
                          $monitoredNodes[scalar(@monitoredNodes)] = ({
                                  name         => $name,
                                  address      => $nAddr,
@@ -268,9 +266,9 @@ foreach my $item( @$objects ) {
                 next unless ($item->{node} eq $mnode->{name});
                 $mnode->{alive}   = 1; # not verified...
                 $mnode->{status}  = $status{ok};
-                $mnode->{curmem}  = ( $item->{mem} / $item->{maxmem} );
-                $mnode->{curdisk} = ( $item->{disk} / $item->{maxdisk} );
-                $mnode->{curcpu}  = ( $item->{cpu} / $item->{maxcpu} );
+                $mnode->{curmem}  = sprintf("%.2f", (( $item->{mem} / $item->{maxmem} ) * 100));
+                $mnode->{curdisk} = sprintf("%.2f", (( $item->{disk} / $item->{maxdisk} ) * 100));
+                $mnode->{curcpu}  = sprintf("%.2f", (( $item->{cpu} / $item->{maxcpu} ) * 100));
             }
         }
         case "storage" {
@@ -297,43 +295,39 @@ if (defined $arguments{nodes}) {
     foreach my $mnode( @monitoredNodes ) {
         $statusScore += $mnode->{status};
         
-        $statusScore += $status{warning}
-          if ((defined $mnode->{warn_mem})
-          and ($mnode->{curmem} > $mnode->{warn_mem}));
-
-        $statusScore += $status{critical}
-          if ((defined $mnode->{critmem})
-          and ($mnode->{curmem} > $mnode->{crit_mem}));
-
-        $statusScore += $status{warning}
-          if ((defined $mnode->{warn_disk})
-          and ($mnode->{curdisk} > $mnode->{warn_disk}));
-
-        $statusScore += $status{critical}
-          if ((defined $mnode->{crit_disk})
-          and ($mnode->{curdisk} > $mnode->{crit_disk}));
-
-        $statusScore += $status{warning}
-          if ((defined $mnode->{warn_cpu})
-          and ($mnode->{curcpu} > $mnode->{warn_cpu}));
-
-        $statusScore += $status{warning}
-          if ((defined $mnode->{warn_cpu})
-          and ($mnode->{curcpu} > $mnode->{warn_cpu}));
-
         if ($mnode->{status} ne $status{unknown}) {
-            $reportSummary .= "VM $mnode->{name} $rstatus{$mnode->{status}} : " .
-                              "cpu $mnode->{curcpu}, " . 
-                              "mem $mnode->{curmem}, " . 
-                              "disk $mnode->{curdisk}\n";
+            $statusScore += $status{warning}
+              if ($mnode->{curmem} > $mnode->{warn_mem});
+
+            $statusScore += $status{critical}
+              if ($mnode->{curmem} > $mnode->{crit_mem});
+
+            $statusScore += $status{warning}
+              if ($mnode->{curdisk} > $mnode->{warn_disk});
+
+            $statusScore += $status{critical}
+              if ($mnode->{curdisk} > $mnode->{crit_disk});
+
+            $statusScore += $status{warning}
+              if ($mnode->{curcpu} > $mnode->{warn_cpu});
+
+            $statusScore += $status{warning}
+              if ($mnode->{curcpu} > $mnode->{warn_cpu});
+
+            $reportSummary .= "NODE $mnode->{name} $rstatus{$mnode->{status}} : " .
+                              "cpu $mnode->{curcpu}%, " . 
+                              "mem $mnode->{curmem}%, " . 
+                              "disk $mnode->{curdisk}%\n";
+
+            $workingNodes++;
         }
-        else { $reportSummary .= "VM $mnode->{name} is in status $status{unknown}\n"; }
+        else { $reportSummary .= "NODE $mnode->{name} is in status $rstatus{$status{unknown}}\n"; }
     }
 
     $statusScore = $status{critical}
       if ( $statusScore > $status{unknown});
 
-    print "OPENVZ $statusScore  $workingNodes / " . scalar(@monitoredNodes) . "\n" . $reportSummary;
+    print "NODES $rstatus{$statusScore}  $workingNodes / " . scalar(@monitoredNodes) . "\n" . $reportSummary;
     exit $statusScore;
 }
 
