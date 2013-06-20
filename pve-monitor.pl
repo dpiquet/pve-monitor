@@ -25,6 +25,10 @@ my $debug = 1;
 my $timeout = 5;
 my $configurationFile = './pve-monitor.conf';
 
+my $st_ok = 0;
+my $st_warn = 1;
+my $st_crit = 3;
+
 my @monitorNodes= (
     {
         server    =>  '192.168.1.1',
@@ -75,24 +79,30 @@ while ( <FILE> ) {
          switch ($1) {
              case "node" {
                  my $name = $2;
-                 my $cpu = undef;
-                 my $mem = undef;
-                 my $disk = undef;
+                 my $warnCpu = undef;
+                 my $warnMem = undef;
+                 my $warnDisk = undef;
+                 my $critCpu = undef;
+                 my $critMem = undef;
+                 my $critDisk = undef;
 
                  while (<FILE>) {
                      my $objLine = $_;
 
                      next if ( $objLine =~ m/^#/i );
-                     if ( $objLine =~ m/(\w+)\s+(\w+)/i ) {
+                     if ( $objLine =~ m/(\w+)\s+(\w+)\s+(\w+)/i ) {
                          switch ($1) {
                              case "cpu" {
-                                 $cpu = $2;
+                                 $warnCpu = $2;
+                                 $critCpu = $3;
                              }
                              case "mem" {
-                                 $mem = $2;
+                                 $warnMem = $2;
+                                 $critMem = $3;
                              }
                              case "disk" {
-                                 $disk = $2;
+                                 $warnDisk = $2;
+                                 $critDisk = $3;
                              }
                              else { die "Invalid token $1 in $name definition !\n"; }
                          }
@@ -101,15 +111,22 @@ while ( <FILE> ) {
                          # check object requirements are met, save it, break
                          die "Invalid configuration !" unless defined $name;
 
-                         print "Saving $name =)";
+                         print "Saving node $name =)\n";
 
                          $monitoredNodes[scalar(@monitoredNodes)] = (
                              {
-                                 name  => $name,
-                                 cpu   => $cpu,
-                                 mem   => $mem,
-                                 disk  => $disk,
-                                 alive => 0,
+                                 name    => $name,
+                                 warn_cpu     => $warnCpu,
+                                 warn_mem     => $warnMem,
+                                 warn_disk    => $warnDisk,
+                                 crit_cpu     => $critCpu,
+                                 crit_mem     => $critMem,
+                                 crit_disk    => $critDisk,
+                                 alive   => 0,
+                                 curmem  => undef,
+                                 curdisk => undef,
+                                 curcpu  => undef,
+                                 status  => $st_crit,
                              },
                          );
                               
@@ -168,13 +185,17 @@ my $objects = $pve->get('/cluster/resources');
 
 print "Found " .  @$objects . " nodes:\n";
 
+# loop the objects to compare our definitions with the current state of the cluster
 foreach my $item( @$objects ) { 
     switch ($item->{type}) {
         case "node" {
             # loop the node array to see if that one is monitored
-            for($a = 0; $a < scalar(@monitoredNodes); $a++) {
-                next unless ($item->{node} eq $monitoredNodes[$a]->{name});
-                $monitoredNodes[$a]->{alive} = 1;
+            foreach my $mnode( @monitoredNodes ) {
+                next unless ($item->{node} eq $mnode->{name});
+                $mnode->{alive}   = 1;
+                $mnode->{curmem}  = $item->{mem};
+                $mnode->{curdisk} = $item->{disk};
+                $mnode->{curcpu}  = $item->{cpu};
             }
         }
         case "storage" {
