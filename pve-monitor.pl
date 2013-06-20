@@ -18,18 +18,18 @@ use lib './lib';
 use Net::Proxmox::VE;
 use Data::Dumper;
 use Getopt::Long;
-
 use Switch;
 
 my $debug = 1;
 my $timeout = 5;
 my $configurationFile = './pve-monitor.conf';
 
-my $st_ok = 0;
-my $st_warn = 1;
-my $st_crit = 3;
-
-my %status = (ok => 0, warning => 1, critical => 2, unknown => 3);
+my %status = (
+    'ok'       => 0,
+    'warning'  => 1,
+    'critical' => 2,
+    'unknown'  => 3,
+);
 
 my @monitorNodes= (
     {
@@ -55,12 +55,17 @@ my @monitorNodes= (
     },
 );
 
-%arguments = (nodes => undef, storages => undef, openvz => undef, qemu => undef);
+my %arguments = (
+    'nodes'    => undef,
+    'storages' => undef,
+    'openvz'   => undef,
+    'qemu'     => undef,
+);
 
-GetOptions ("nodes"    => \$arguments->{nodes},
-            "storages" => \$arguments->{storages},
-            "openvz"   => \$arguments->{openvz},
-            "qemu"     => \$arguments->{qemu}
+GetOptions ("nodes"    => \$arguments{nodes},
+            "storages" => \$arguments{storages},
+            "openvz"   => \$arguments{openvz},
+            "qemu"     => \$arguments{qemu},
 );
 
 # Arrays for objects to monitor
@@ -136,7 +141,7 @@ while ( <FILE> ) {
                                  curmem       => undef,
                                  curdisk      => undef,
                                  curcpu       => undef,
-                                 status       => $status->{unknown},
+                                 status       => $status{unknown},
                              },
                          );
                               
@@ -196,9 +201,11 @@ while ( <FILE> ) {
                                  curmem       => undef,
                                  curdisk      => undef,
                                  curcpu       => undef,
-                                 status       => $status->{unknown},
+                                 status       => $status{unknown},
                              },
-                         );
+                        );
+                     }
+                 }
 
                  last;
              }
@@ -275,7 +282,7 @@ foreach my $item( @$objects ) {
 
 # Finally, loop the monitored objects arrays to report situation
 
-if (defined $arguments->{node}) {
+if (defined $arguments{node}) {
     my $statusScore = 0;
 
     my $reportSummary = '';
@@ -283,27 +290,27 @@ if (defined $arguments->{node}) {
     foreach my $mnode( @monitoredNodes ) {
         $statusScore += $mnode->{status};
         
-        $statusScore += $status->{warning}
+        $statusScore += $status{warning}
           if (($mnode->{curmem} > $mnode->{warn_mem})
           and (defined $mnode->{warn_mem}));
 
-        $statusScore += $status->{critical}
+        $statusScore += $status{critical}
           if (($mnode->{curmem} > $mnode->{crit_mem})
           and (defined $mnode->{critmem}));
 
-        $statusScore += $status->{warning}
+        $statusScore += $status{warning}
           if (($mnode->{curdisk} > $mnode->{warn_disk})
           and (defined $mnode->{warn_disk}));
 
-        $statusScore += $status->{critical}
+        $statusScore += $status{critical}
           if (($mnode->{curdisk} > $mnode->{crit_disk})
           and (defined $mnode->{crit_disk}));
 
-        $statusScore += $status->{warning}
+        $statusScore += $status{warning}
           if (($mnode->{curcpu} > $mnode->{warn_cpu})
           and (defined $mnode->{warn_cpu}));
 
-        $statusScore += $status->{warning}
+        $statusScore += $status{warning}
           if (($mnode->{curcpu} > $mnode->{warn_cpu})
           and (defined $mnode->{warn_cpu}));
 
@@ -313,23 +320,23 @@ if (defined $arguments->{node}) {
                           "disk $mnode->{curdisk}\n";
     }
 
-    $statusScore = $status->{critical}
-      if ( $statusScore > $status->{unknown});
+    $statusScore = $status{critical}
+      if ( $statusScore > $status{unknown});
 
-    print "OPENVZ $status working nodes / " . scalar($monitoredNodes) . "\n" . $reportSummary;
+    print "OPENVZ $statusScore  <working nodes> / " . scalar(@monitoredNodes) . "\n" . $reportSummary;
     return $statusScore;
 }
 
-if (defined $arguments->{openvz}) {
-    foreach my $mopenvz( @monitoredOpenVz ) {
-    
+if (defined $arguments{openvz}) {
+    foreach my $mopenvz( @monitoredOpenvz ) {
+        print "not yet implemented";
     }
 }
 
-if (defined $arguments->{storage}) {
+if (defined $arguments{storage}) {
     print "not implemented yet";
 }
 
-if defined $arguments->{qemu}) {
+if (defined $arguments{qemu}) {
     print "not implemented yet";
 }
