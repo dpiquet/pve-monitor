@@ -219,7 +219,63 @@ while ( <FILE> ) {
                  }
              }
              case "qemu" {
-                 last;
+                 my $name     = $2;
+                 my $warnCpu  = undef;
+                 my $warnMem  = undef;
+                 my $warnDisk = undef;
+                 my $critCpu  = undef;
+                 my $critMem  = undef;
+                 my $critDisk = undef;
+
+                 $readingObject = 1;
+
+                 while (<FILE>) {
+                     my $objLine = $_;
+
+                     next if ( $objLine =~ m/^#/i );
+                     if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)\s+([\w\.]+)/i ) {
+                         switch ($1) {
+                             case "cpu" {
+                                 $warnCpu = $2;
+                                 $critCpu = $3;
+                             }
+                             case "mem" {
+                                 $warnMem = $2;
+                                 $critMem = $3;
+                             }
+                             case "disk" {
+                                 $warnDisk = $2;
+                                 $critDisk = $3;
+                             }
+                             else { die "Invalid token $1 in $name definition !\n"; }
+                         }
+                     }
+                     elsif ( $objLine =~ m/\}/i ) {
+                         # check object requirements are met, save it, break
+                         die "Invalid configuration !" unless defined $name;
+
+                         print "Saving qemu $name =)\n";
+
+                         $monitoredQemus[scalar(@monitoredQemus)] = ({
+                                 name         => $name,
+                                 warn_cpu     => $warnCpu,
+                                 warn_mem     => $warnMem,
+                                 warn_disk    => $warnDisk,
+                                 crit_cpu     => $critCpu,
+                                 crit_mem     => $critMem,
+                                 crit_disk    => $critDisk,
+                                 alive        => 0,
+                                 curmem       => undef,
+                                 curdisk      => undef,
+                                 curcpu       => undef,
+                                 status       => $status{unknown},
+                                 uptime       => undef,
+                             },
+                         );
+                         $readingObject = 0;
+                         last;
+                     }
+                 }
              }
              else { die "Invalid token $1 in configuration file $configurationFile !\n"; }
          }
@@ -304,6 +360,23 @@ foreach my $item( @$objects ) {
             next;
         }
         case "qemu" {
+            foreach my $mqemu( @monitoredQemus ) {
+                next unless ($item->{name} eq $mqemu->{name});
+
+                $mqemu->{status} = $status{critical}
+                  if $item->{status} eq 'stopped';
+
+                $mqemu->{status} = $status{warning}
+                  if $item->{status} eq 'suspend';
+
+                $mqemu->{status} = $status{ok}
+                  if $item->{status} eq 'running';
+
+                $mqemu->{curmem}  = sprintf("%.2f", (( $item->{mem} / $item->{maxmem} ) * 100));
+                $mqemu->{curdisk} = sprintf("%.2f", (( $item->{disk} / $item->{maxdisk} ) * 100));
+                $mqemu->{curcpu}  = sprintf("%.2f", (( $item->{cpu} / $item->{maxcpu} ) * 100));
+            }
+
             next;
         }
     }
@@ -347,13 +420,17 @@ if (defined $arguments{nodes}) {
 
             $workingNodes++;
         }
-        else { $reportSummary .= "NODE $mnode->{name} is in status $rstatus{$status{unknown}}\n"; }
+        else {
+            $reportSummary .= "NODE $mnode->{name} is in status $rstatus{$status{unknown}}\n";
+        }
     }
 
     $statusScore = $status{critical}
       if ( $statusScore > $status{unknown});
 
-    print "NODES $rstatus{$statusScore}  $workingNodes / " . scalar(@monitoredNodes) . "\n" . $reportSummary;
+    print "NODES $rstatus{$statusScore}  $workingNodes / " .
+          scalar(@monitoredNodes) . "\n" . $reportSummary;
+
     exit $statusScore;
 }
 
@@ -390,15 +467,18 @@ if (defined $arguments{openvz}) {
 
             $workingVms++;
         }
-        else { $reportSummary .= "OPENVZ $mopenvz->{name} is in status $rstatus{$status{unknown}}\n"; }
+        else {
+            $reportSummary .= "OPENVZ $mopenvz->{name} " .
+                              "is in status $rstatus{$status{unknown}}\n";
+        }
     }
-
-    print $statusScore;
 
     $statusScore = $status{critical}
       if ($statusScore > 3);
 
-    print "OPENVZ $rstatus{$statusScore} $workingVms / " . scalar(@monitoredOpenvz) . "\n" . $reportSummary;
+    print "OPENVZ $rstatus{$statusScore} $workingVms / " .
+          scalar(@monitoredOpenvz) . "\n" . $reportSummary;
+
     exit $statusScore;
 }
 
@@ -407,5 +487,49 @@ if (defined $arguments{storages}) {
 }
 
 if (defined $arguments{qemu}) {
-    print "not implemented yet";
+    my $statusScore = 0;
+    my $workingVms = 0;
+
+    my $reportSummary = '';
+
+    foreach my $mqemu( @monitoredQemus ) {
+        if ($mqemu->{status} ne $status{unknown}) {
+            $statusScore += $status{warning}
+              if ($mqemu->{curmem} > $mqemu->{warn_mem});
+
+            $statusScore += $status{critical}
+              if $mqemu->{curmem} > $mqemu->{crit_mem};
+
+            $statusScore += $status{warning}
+              if $mqemu->{curdisk} > $mqemu->{warn_disk};
+
+            $statusScore += $status{critical}
+              if $mqemu->{curdisk} > $mqemu->{crit_disk};
+
+            $statusScore += $status{warning}
+              if $mqemu->{curcpu} > $mqemu->{warn_cpu};
+
+            $statusScore += $status{critical}
+              if $mqemu->{curcpu} > $mqemu->{crit_cpu};
+
+            $reportSummary .= "OPENVZ $mqemu->{name} $rstatus{$mqemu->{status}} : " .
+                              "cpu $mqemu->{curcpu}%, " .
+                              "mem $mqemu->{curmem}%, " .
+                              "disk $mqemu->{curdisk}%\n";
+
+            $workingVms++;
+        }
+        else {
+            $reportSummary .= "QEMU $mqemu->{name} is in status $rstatus{$status{unknown}}\n";
+        }
+    }
+
+    $statusScore = $status{critical}
+      if ($statusScore > 3);
+
+    print "QEMU $rstatus{$statusScore} $workingVms / " .
+          scalar(@monitoredQemus) . "\n" .
+          $reportSummary;
+
+    exit $statusScore;
 }
