@@ -59,6 +59,8 @@ my $password = undef;
 my $realm = undef;
 my $pve;
 
+my $readingObject = 0;
+
 # Read the configuration file
 open FILE, "<", "$configurationFile" or die $!;
 while ( <FILE> ) {
@@ -68,7 +70,7 @@ while ( <FILE> ) {
     next if $line =~ m/^#/i;
 
     # we got an object definition here !
-    if ( $line =~ m/(\w+)\s+(\w+)\s+\{/i ) {
+    if ( $line =~ m/([\w\/]+)\s+([\w\.]+)\s+\{/i ) {
          switch ($1) {
              case "node" {
                  my $name     = $2;
@@ -83,6 +85,8 @@ while ( <FILE> ) {
                  my $nUser    = undef;
                  my $nPwd     = undef;
                  my $nRealm   = 'pam';
+
+                 $readingObject = 1;
 
                  while (<FILE>) {
                      my $objLine = $_;
@@ -145,7 +149,8 @@ while ( <FILE> ) {
                                  status       => $status{unknown},
                              },
                          );
-                              
+                         
+                         $readingObject = 0;
                          last;
                      }
                  }
@@ -162,11 +167,13 @@ while ( <FILE> ) {
                  my $critMem  = undef;
                  my $critDisk = undef;
 
+                 $readingObject = 1;
+
                  while (<FILE>) {
                      my $objLine = $_;
 
                      next if ( $objLine =~ m/^#/i );
-                     if ( $objLine =~ m/(\w+)\s+(\w+)\s+(\w+)/i ) {
+                     if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)\s+([\w\.]+)/i ) {
                          switch ($1) {
                              case "cpu" {
                                  $warnCpu = $2;
@@ -204,10 +211,10 @@ while ( <FILE> ) {
                                  status       => $status{unknown},
                              },
                          );
+                         $readingObject = 0;
+                         last;
                      }
                  }
-
-                 last;
              }
              case "qemu" {
                  last;
@@ -218,6 +225,8 @@ while ( <FILE> ) {
 }
 
 close(FILE);
+
+die "Invalid configuration !" unless ($readingObject eq 0);
 
 for($a = 0; $a < scalar(@monitoredNodes); $a++) {
     my $host     = $monitoredNodes[$a]->{address} or next;
@@ -332,9 +341,46 @@ if (defined $arguments{nodes}) {
 }
 
 if (defined $arguments{openvz}) {
+    my $statusScore = 0;
+    my $workingVms = 0;
+
+    my $reportSummary = '';
+
     foreach my $mopenvz( @monitoredOpenvz ) {
-        print "not yet implemented";
+        if ($mopenvz->{status} ne $status{unknown}) {
+            $statusScore += $status{warning}
+              if ($mopenvz->{curmem} > $mopenvz->{warn_mem});
+
+            $statusScore += $status{critical}
+              if $mopenvz->{curmem} > $mopenvz->{crit_mem};
+
+            $statusScore += $status{warning}
+              if $mopenvz->{curdisk} > $mopenvz->{warn_disk};
+
+            $statusScore += $status{critical}
+              if $mopenvz->{curdisk} > $mopenvz->{crit_disk};
+
+            $statusScore += $status{warning}
+              if $mopenvz->{curcpu} > $mopenvz->{warn_cpu};
+
+            $statusScore += $status{critical}
+              if $mopenvz->{curcpu} > $mopenvz->{crit_cpu};
+
+            $reportSummary .= "OPENVZ $mopenvz->{name} $rstatus{$mopenvz->{status}} : " .
+                              "cpu $mopenvz->{curcpu}%, " .
+                              "mem $mopenvz->{curmem}%, " .
+                              "disk $mopenvz->{curdisk}%\n";
+
+            $workingVms++;
+        }
+        else { $reportSummary .= "OPENVZ $mopenvz->{name} is in status $rstatus{$status{unknown}}\n"; }
     }
+
+    $statusScore = $status{critical}
+      if ($statusScore > 3);
+
+    print "OPENVZ $rstatus{$statusScore} $workingVms / " . scalar(@monitoredOpenvz) . "\n" . $reportSummary;
+    exit $statusScore;
 }
 
 if (defined $arguments{storages}) {
