@@ -147,6 +147,7 @@ while ( <FILE> ) {
                                  curdisk      => undef,
                                  curcpu       => undef,
                                  status       => $status{unknown},
+                                 uptime       => undef,
                              },
                          );
                          
@@ -177,15 +178,15 @@ while ( <FILE> ) {
                          switch ($1) {
                              case "cpu" {
                                  $warnCpu = $2;
-                                 $critCpu = $4;
+                                 $critCpu = $3;
                              }
                              case "mem" {
                                  $warnMem = $2;
-                                 $critMem = $4;
+                                 $critMem = $3;
                              }
                              case "disk" {
                                  $warnDisk = $2;
-                                 $critDisk = $4;
+                                 $critDisk = $3;
                              }
                              else { die "Invalid token $1 in $name definition !\n"; }
                          }
@@ -209,6 +210,7 @@ while ( <FILE> ) {
                                  curdisk      => undef,
                                  curcpu       => undef,
                                  status       => $status{unknown},
+                                 uptime       => undef,
                              },
                          );
                          $readingObject = 0;
@@ -273,7 +275,6 @@ foreach my $item( @$objects ) {
             # loop the node array to see if that one is monitored
             foreach my $mnode( @monitoredNodes ) {
                 next unless ($item->{node} eq $mnode->{name});
-                $mnode->{alive}   = 1; # not verified...
                 $mnode->{status}  = $status{ok};
                 $mnode->{curmem}  = sprintf("%.2f", (( $item->{mem} / $item->{maxmem} ) * 100));
                 $mnode->{curdisk} = sprintf("%.2f", (( $item->{disk} / $item->{maxdisk} ) * 100));
@@ -284,6 +285,22 @@ foreach my $item( @$objects ) {
             next;
         }
         case "openvz" {
+            foreach my $mopenvz( @monitoredOpenvz ) {
+                next unless ($item->{name} eq $mopenvz->{name});
+
+                $mopenvz->{status} = $status{critical}
+                  if $item->{status} eq 'stopped';
+
+                $mopenvz->{status} = $status{warning}
+                  if $item->{status} eq 'suspend';
+
+                $mopenvz->{status} = $status{ok}
+                  if $item->{status} eq 'running';
+
+                $mopenvz->{curmem}  = sprintf("%.2f", (( $item->{mem} / $item->{maxmem} ) * 100));
+                $mopenvz->{curdisk} = sprintf("%.2f", (( $item->{disk} / $item->{maxdisk} ) * 100));
+                $mopenvz->{curcpu}  = sprintf("%.2f", (( $item->{cpu} / $item->{maxcpu} ) * 100));
+            }
             next;
         }
         case "qemu" {
@@ -375,6 +392,8 @@ if (defined $arguments{openvz}) {
         }
         else { $reportSummary .= "OPENVZ $mopenvz->{name} is in status $rstatus{$status{unknown}}\n"; }
     }
+
+    print $statusScore;
 
     $statusScore = $status{critical}
       if ($statusScore > 3);
