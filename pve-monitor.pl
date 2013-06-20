@@ -157,7 +157,44 @@ while ( <FILE> ) {
                  }
              }
              case "storage" {
-                 last;
+                 my $name     = $2;
+                 my $warnDisk = undef;
+                 my $critDisk = undef;
+
+                 $readingObject = 1;
+
+                 while (<FILE>) {
+                     my $objLine = $_;
+
+                     next if ( $objLine =~ m/^#/i );
+                     if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)\s+([\w\.]+)/i ) {
+                         switch ($1) {
+                             case "disk" {
+                                 $warnDisk = $2;
+                                 $critDisk = $3;
+                             }
+                             else { die "Invalid token $1 in $name definition !\n"; }
+                         }
+                     }
+                     elsif ( $objLine =~ m/\}/i ) {
+                         # check object requirements are met, save it, break
+                         die "Invalid configuration !" unless defined $name;
+
+                         print "Loaded storage $name =)\n";
+
+                         $monitoredStorages[scalar(@monitoredStorages)] = ({
+                                 name         => $name,
+                                 warn_disk    => $warnDisk,
+                                 crit_disk    => $critDisk,
+                                 curdisk      => undef,
+                                 status       => $status{unknown},
+                             },
+                         );
+                         $readingObject = 0;
+                         last;
+                     }
+                 }
+
              }
              case "openvz" {
                  my $name     = $2;
@@ -338,6 +375,14 @@ foreach my $item( @$objects ) {
             }
         }
         case "storage" {
+            foreach my $mstorage( @monitoredStorages ) {
+                next unless ($item->{storage} eq $mstorage->{name});
+
+                $mstorage->{status} = $status{ok};
+
+                $mstorage->{curdisk} = sprintf("%.2f", (( $item->{disk} / $item->{maxdisk} ) * 100));
+            }
+
             next;
         }
         case "openvz" {
@@ -483,7 +528,38 @@ if (defined $arguments{openvz}) {
 }
 
 if (defined $arguments{storages}) {
-    print "not implemented yet";
+    my $statusScore = 0;
+    my $workingStorages = 0;
+
+    my $reportSummary = '';
+
+    foreach my $mstorage( @monitoredStorages ) {
+        if ($mstorage->{status} ne $status{unknown}) {
+
+            $statusScore += $status{warning}
+              if $mstorage->{curdisk} > $mstorage->{warn_disk};
+
+            $statusScore += $status{critical}
+              if $mstorage->{curdisk} > $mstorage->{crit_disk};
+
+            $reportSummary .= "STORAGE $mstorage->{name} $rstatus{$mstorage->{status}} : " .
+                              "disk $mstorage->{curdisk}%\n";
+
+            $workingStorages++;
+        }
+        else {
+            $reportSummary .= "STORAGE $mstorage->{name} " .
+                              "is in status $rstatus{$status{unknown}}\n";
+        }
+    }
+
+    $statusScore = $status{critical}
+      if ($statusScore > 3);
+
+    print "STORAGE $rstatus{$statusScore} $workingStorages / " .
+          scalar(@monitoredStorages) . "\n" . $reportSummary;
+
+    exit $statusScore;
 }
 
 if (defined $arguments{qemu}) {
