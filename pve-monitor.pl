@@ -38,13 +38,24 @@ my %arguments = (
     'storages' => undef,
     'openvz'   => undef,
     'qemu'     => undef,
+    'conf'     => undef,
 );
+
+sub usage {
+    print "Usage: $0 [--node] [--storage] [--qemu] [--openvz] --conf <file>\n";
+}
 
 GetOptions ("nodes"    => \$arguments{nodes},
             "storages" => \$arguments{storages},
             "openvz"   => \$arguments{openvz},
             "qemu"     => \$arguments{qemu},
+            "conf=s"     => \$arguments{conf},
 );
+
+if (! defined $arguments{conf}) {
+    usage();
+    exit $status{unknown};
+}
 
 # Arrays for objects to monitor
 my @monitoredStorages;
@@ -62,7 +73,12 @@ my $pve;
 my $readingObject = 0;
 
 # Read the configuration file
-open FILE, "<", "$configurationFile" or die $!;
+if (! open FILE, "<", "$arguments{conf}") {
+    print "$!\n" if $debug;
+    print "Cannot load configuration file $arguments{conf} !\n";
+    exit $status{unknown};
+}
+
 while ( <FILE> ) {
     my $line = $_;
 
@@ -122,12 +138,18 @@ while ( <FILE> ) {
                              case "realm" {
                                  $nRealm = $2;
                              }
-                             else { die "Invalid token $1 in $name definition !\n"; }
+                             else {
+                                 print "Invalid token $1 in $name definition !\n";
+                                 exit $status{unknown};
+                             }
                          }
                      }
                      elsif ( $objLine =~ m/\}/i ) {
                          # check object requirements are met, save it, break
-                         die "Invalid configuration !" unless defined $name;
+                         if (! defined $name ) {
+                             print "Invalid configuration !";
+                             exit $status{unknown};
+                         }
 
                          $monitoredNodes[scalar(@monitoredNodes)] = ({
                                  name         => $name,
@@ -173,14 +195,21 @@ while ( <FILE> ) {
                                  $warnDisk = $2;
                                  $critDisk = $3;
                              }
-                             else { die "Invalid token $1 in $name definition !\n"; }
+                             else {
+                                 print "Invalid token $1 in $name definition !\n";
+                                 exit $status{unknown};
+                             }
                          }
                      }
                      elsif ( $objLine =~ m/\}/i ) {
                          # check object requirements are met, save it, break
-                         die "Invalid configuration !" unless defined $name;
+                         if (! defined $name ) {
+                             print "Invalid configuration !";
+                             exit $status{unknown};
+                         }
 
-                         print "Loaded storage $name =)\n";
+                         print "Loaded storage $name\n"
+                           if $debug;
 
                          $monitoredStorages[scalar(@monitoredStorages)] = ({
                                  name         => $name,
@@ -225,14 +254,21 @@ while ( <FILE> ) {
                                  $warnDisk = $2;
                                  $critDisk = $3;
                              }
-                             else { die "Invalid token $1 in $name definition !\n"; }
+                             else {
+                                 print "Invalid token $1 in $name definition !\n";
+                                 exit $status{unknown};
+                             }
                          }
                      }
                      elsif ( $objLine =~ m/\}/i ) {
                          # check object requirements are met, save it, break
-                         die "Invalid configuration !" unless defined $name;
+                         if (! defined $name ) {
+                             die "Invalid configuration !";
+                             exit $status{unknown};
+                         }
 
-                         print "Saving openvz $name =)\n";
+                         print "Loaded openvz $name\n"
+                           if $debug;
 
                          $monitoredOpenvz[scalar(@monitoredOpenvz)] = ({
                                  name         => $name,
@@ -284,14 +320,21 @@ while ( <FILE> ) {
                                  $warnDisk = $2;
                                  $critDisk = $3;
                              }
-                             else { die "Invalid token $1 in $name definition !\n"; }
+                             else {
+                                 print "Invalid token $1 in $name definition !\n";
+                                 exit $status{unknown};
+                             }
                          }
                      }
                      elsif ( $objLine =~ m/\}/i ) {
                          # check object requirements are met, save it, break
-                         die "Invalid configuration !" unless defined $name;
+                         if (! defined $name ) {
+                             print "Invalid configuration !\n";
+                             exit $status{unknown};
+                         }
 
-                         print "Saving qemu $name =)\n";
+                         print "Loaded qemu $name\n"
+                           if $debug;
 
                          $monitoredQemus[scalar(@monitoredQemus)] = ({
                                  name         => $name,
@@ -314,14 +357,20 @@ while ( <FILE> ) {
                      }
                  }
              }
-             else { die "Invalid token $1 in configuration file $configurationFile !\n"; }
+             else {
+                 print "Invalid token $1 in configuration file $arguments{conf} !\n";
+                 exit $status{unknown};
+             }
          }
     }
 }
 
 close(FILE);
 
-die "Invalid configuration !" unless ($readingObject eq 0);
+if ( $readingObject ) {
+    print "Invalid configuration ! (Probably missing '}' ) \n";
+    exit $status{unknown};
+}   
 
 for($a = 0; $a < scalar(@monitoredNodes); $a++) {
     my $host     = $monitoredNodes[$a]->{address} or next;
@@ -354,12 +403,16 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
     last;
 }
 
-die "Could not connect to any server !" unless $connected;
+if (! $connected ) {
+    print "Could not connect to any server !";
+    exit $status{unknown};
+}
 
 # list all ressources of the cluster
 my $objects = $pve->get('/cluster/resources');
 
-print "Found " . scalar(@$objects) . " objects:\n";
+print "Found " . scalar(@$objects) . " objects:\n"
+  if $debug;
 
 # loop the objects to compare our definitions with the current state of the cluster
 foreach my $item( @$objects ) { 
@@ -477,9 +530,7 @@ if (defined $arguments{nodes}) {
           scalar(@monitoredNodes) . "\n" . $reportSummary;
 
     exit $statusScore;
-}
-
-if (defined $arguments{openvz}) {
+} elsif (defined $arguments{openvz}) {
     my $statusScore = 0;
     my $workingVms = 0;
 
@@ -525,9 +576,7 @@ if (defined $arguments{openvz}) {
           scalar(@monitoredOpenvz) . "\n" . $reportSummary;
 
     exit $statusScore;
-}
-
-if (defined $arguments{storages}) {
+} elsif (defined $arguments{storages}) {
     my $statusScore = 0;
     my $workingStorages = 0;
 
@@ -560,9 +609,7 @@ if (defined $arguments{storages}) {
           scalar(@monitoredStorages) . "\n" . $reportSummary;
 
     exit $statusScore;
-}
-
-if (defined $arguments{qemu}) {
+} elsif (defined $arguments{qemu}) {
     my $statusScore = 0;
     my $workingVms = 0;
 
@@ -608,4 +655,7 @@ if (defined $arguments{qemu}) {
           $reportSummary;
 
     exit $statusScore;
+} else {
+    usage();
+    exit $status{unknown};
 }
