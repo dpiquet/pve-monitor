@@ -20,7 +20,7 @@ use Data::Dumper;
 use Getopt::Long;
 use Switch;
 
-my $debug = 0;
+my $debug = 1;
 my $timeout = 5;
 my $configurationFile = './pve-monitor.conf';
 
@@ -108,7 +108,7 @@ while ( <FILE> ) {
                      my $objLine = $_;
 
                      next if ( $objLine =~ m/^#/i );
-                     if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)(\s+([\w+\.]))?/i ) {
+                     if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)(\s+([\w\.]+))?/i ) {
 
                          switch ($1) {
                              case "cpu" {
@@ -150,6 +150,9 @@ while ( <FILE> ) {
                              print "Invalid configuration !";
                              exit $status{unknown};
                          }
+
+                         print "Loaded node $name\n"
+                           if $debug;
 
                          $monitoredNodes[scalar(@monitoredNodes)] = ({
                                  name         => $name,
@@ -421,6 +424,10 @@ foreach my $item( @$objects ) {
             # loop the node array to see if that one is monitored
             foreach my $mnode( @monitoredNodes ) {
                 next unless ($item->{node} eq $mnode->{name});
+
+                print "Found $mnode->{name} in resource list\n"
+                  if $debug;
+
                 $mnode->{status}  = $status{ok};
                 $mnode->{curmem}  = sprintf("%.2f", (( $item->{mem} / $item->{maxmem} ) * 100));
                 $mnode->{curdisk} = sprintf("%.2f", (( $item->{disk} / $item->{maxdisk} ) * 100));
@@ -430,6 +437,9 @@ foreach my $item( @$objects ) {
         case "storage" {
             foreach my $mstorage( @monitoredStorages ) {
                 next unless ($item->{storage} eq $mstorage->{name});
+
+                print "Found $mstorage->{name} in resource list\n"
+                  if $debug;
 
                 $mstorage->{status} = $status{ok};
 
@@ -441,6 +451,9 @@ foreach my $item( @$objects ) {
         case "openvz" {
             foreach my $mopenvz( @monitoredOpenvz ) {
                 next unless ($item->{name} eq $mopenvz->{name});
+
+                print "Found $mopenvz->{name} in resource list\n"
+                  if $debug;
 
                 $mopenvz->{status} = $status{critical}
                   if $item->{status} eq 'stopped';
@@ -460,6 +473,9 @@ foreach my $item( @$objects ) {
         case "qemu" {
             foreach my $mqemu( @monitoredQemus ) {
                 next unless ($item->{name} eq $mqemu->{name});
+
+                print "Found $mqemu->{name} in resource list\n"
+                  if $debug;
 
                 $mqemu->{status} = $status{critical}
                   if $item->{status} eq 'stopped';
@@ -500,7 +516,7 @@ if (defined $arguments{nodes}) {
               if ($mnode->{curmem} > $mnode->{crit_mem});
 
             $statusScore += $status{warning}
-              if ($mnode->{curdisk} > $mnode->{warn_disk});
+              if ($mnode->{curdisk} > $mnode->{warn_disk}+0);
 
             $statusScore += $status{critical}
               if ($mnode->{curdisk} > $mnode->{crit_disk});
