@@ -339,7 +339,8 @@ while ( <FILE> ) {
                          print "Loaded qemu $name\n"
                            if $debug;
 
-                         $monitoredQemus[scalar(@monitoredQemus)] = ({
+                         $monitoredQemus[scalar(@monitoredQemus)] = (
+                             {
                                  name         => $name,
                                  warn_cpu     => $warnCpu,
                                  warn_mem     => $warnMem,
@@ -533,6 +534,9 @@ if (defined $arguments{nodes}) {
                               "disk $mnode->{curdisk}%\n";
 
             $workingNodes++;
+
+            # Do not leave $statusScore at level unknown here
+            $statusScore++ if $statusScore eq $status{unknown};
         }
         else {
             $reportSummary .= "NODE $mnode->{name} is in status $rstatus{$status{unknown}}\n";
@@ -578,6 +582,8 @@ if (defined $arguments{nodes}) {
                               "disk $mopenvz->{curdisk}%\n";
 
             $workingVms++;
+
+            $statusScore++ if $statusScore eq $status{unknown};
         }
         else {
             $reportSummary .= "OPENVZ $mopenvz->{name} " .
@@ -600,7 +606,6 @@ if (defined $arguments{nodes}) {
 
     foreach my $mstorage( @monitoredStorages ) {
         if ($mstorage->{status} ne $status{unknown}) {
-
             $statusScore += $status{warning}
               if $mstorage->{curdisk} > $mstorage->{warn_disk};
 
@@ -611,6 +616,8 @@ if (defined $arguments{nodes}) {
                               "disk $mstorage->{curdisk}%\n";
 
             $workingStorages++;
+
+            $statusScore++ if $statusScore eq $status{unknown};
         }
         else {
             $reportSummary .= "STORAGE $mstorage->{name} " .
@@ -634,7 +641,7 @@ if (defined $arguments{nodes}) {
     foreach my $mqemu( @monitoredQemus ) {
         if ($mqemu->{status} ne $status{unknown}) {
             $statusScore += $status{warning}
-              if ($mqemu->{curmem} > $mqemu->{warn_mem});
+              if $mqemu->{curmem} > $mqemu->{warn_mem};
 
             $statusScore += $status{critical}
               if $mqemu->{curmem} > $mqemu->{crit_mem};
@@ -651,10 +658,12 @@ if (defined $arguments{nodes}) {
             $statusScore += $status{critical}
               if $mqemu->{curcpu} > $mqemu->{crit_cpu};
 
-            $reportSummary .= "OPENVZ $mqemu->{name} $rstatus{$mqemu->{status}} : " .
+            $reportSummary .= "QEMU $mqemu->{name} $rstatus{$mqemu->{status}} : " .
                               "cpu $mqemu->{curcpu}%, " .
                               "mem $mqemu->{curmem}%, " .
                               "disk $mqemu->{curdisk}%\n";
+
+            $statusScore++ if $statusScore eq $status{unknown};
 
             $workingVms++;
         }
@@ -664,7 +673,7 @@ if (defined $arguments{nodes}) {
     }
 
     $statusScore = $status{critical}
-      if ($statusScore > 3);
+      if ($statusScore > $status{unknown});
 
     print "QEMU $rstatus{$statusScore} $workingVms / " .
           scalar(@monitoredQemus) . "\n" .
