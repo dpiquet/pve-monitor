@@ -672,7 +672,7 @@ if (defined $arguments{nodes}) {
       if ($statusScore > 3);
 
     print "OPENVZ $rstatus{$statusScore} $workingVms / " .
-          scalar(@monitoredOpenvz) . "\n" . $reportSummary;
+          scalar(@monitoredOpenvz) . " working VMs\n" . $reportSummary;
 
     exit $statusScore;
 } elsif (defined $arguments{storages}) {
@@ -712,7 +712,7 @@ if (defined $arguments{nodes}) {
       if ($statusScore > 3);
 
     print "STORAGE $rstatus{$statusScore} $workingStorages / " .
-          scalar(@monitoredStorages) . "\n" . $reportSummary;
+          scalar(@monitoredStorages) . " working storages\n" . $reportSummary;
 
     exit $statusScore;
 } elsif (defined $arguments{qemu}) {
@@ -769,7 +769,7 @@ if (defined $arguments{nodes}) {
             $reportSummary .= "QEMU $mqemu->{name} $rstatus{$mqemu->{status}} : " .
                               "cpu $rstatus{$mqemu->{cpu_status}} ($mqemu->{curcpu}%), " .
                               "mem $rstatus{$mqemu->{mem_status}} ($mqemu->{curmem}%), " .
-                              "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%)" .
+                              "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%) " .
                               "uptime $mqemu->{uptime}\n";
 
             $statusScore++ if $statusScore eq $status{unknown};
@@ -784,7 +784,7 @@ if (defined $arguments{nodes}) {
       if ($statusScore > $status{unknown});
 
     print "QEMU $rstatus{$statusScore} $workingVms / " .
-          scalar(@monitoredQemus) . "\n" .
+          scalar(@monitoredQemus) . " working VMs\n" .
           $reportSummary;
 
     exit $statusScore;
