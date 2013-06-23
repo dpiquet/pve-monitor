@@ -30,13 +30,13 @@
 use strict;
 use warnings;
 
+use lib './lib';
 use Net::Proxmox::VE;
 use Data::Dumper;
 use Getopt::Long;
 use Switch;
 
 my $debug = undef;
-my $timeout = 5;
 my $configurationFile = './pve-monitor.conf';
 my $pluginVersion = '0.9';
 
@@ -57,10 +57,20 @@ my %arguments = (
     'conf'         => undef,
     'show_help'    => undef,
     'show_version' => undef,
+    'timeout'      => 5,
 );
 
 sub usage {
-    print "Usage: $0 [--node] [--storage] [--qemu] [--openvz] --conf <file>\n";
+    print "Usage: $0 [--nodes] [--storages] [--qemu] [--openvz] --conf <file>\n";
+    print "\n";
+    print "  --nodes\n";
+    print "    Check the state of the cluster's members\n";
+    print "  --storages\n";
+    print "    Check the state of the cluster's storages\n";
+    print "  --qemu\n";
+    print "    Check the state of the cluster's Qemu virtual machines\n";
+    print "  --openvz\n";
+    print "    Check the state of the cluster's OpenVZ virtual machines\n";
 }
 
 GetOptions ("nodes"     => \$arguments{nodes},
@@ -70,6 +80,7 @@ GetOptions ("nodes"     => \$arguments{nodes},
             "conf=s"    => \$arguments{conf},
             'version|V' => \$arguments{show_version},
             'help|h'    => \$arguments{show_help},
+            'timeout|t' => \$arguments{timeout},
 );
 
 if (defined $arguments{show_version}) {
@@ -315,7 +326,7 @@ while ( <FILE> ) {
                                  crit_cpu     => $critCpu,
                                  crit_mem     => $critMem,
                                  crit_disk    => $critDisk,
-                                 alive        => 0,
+                                 alive        => undef,
                                  curmem       => undef,
                                  curdisk      => undef,
                                  curcpu       => undef,
@@ -385,7 +396,7 @@ while ( <FILE> ) {
                                  crit_cpu     => $critCpu,
                                  crit_mem     => $critMem,
                                  crit_disk    => $critDisk,
-                                 alive        => 0,
+                                 alive        => undef,
                                  curmem       => undef,
                                  curdisk      => undef,
                                  curcpu       => undef,
@@ -432,7 +443,7 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
         password => $password,
         debug    => $debug,
         realm    => $realm,
-        timeout  => $timeout,
+        timeout  => $arguments{timeout},
     );
 
     next unless $pve->login;
@@ -470,6 +481,7 @@ foreach my $item( @$objects ) {
                   if $debug;
 
                 $mnode->{status}  = $status{ok};
+                $mnode->{uptime}  = $item->{uptime};
                 $mnode->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
                 $mnode->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
                 $mnode->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
@@ -496,15 +508,8 @@ foreach my $item( @$objects ) {
                 print "Found $mopenvz->{name} in resource list\n"
                   if $debug;
 
-                $mopenvz->{status} = $status{critical}
-                  if $item->{status} eq 'stopped';
-
-                $mopenvz->{status} = $status{warning}
-                  if $item->{status} eq 'suspend';
-
-                $mopenvz->{status} = $status{ok}
-                  if $item->{status} eq 'running';
-
+                $mopenvz->{alive}   = $item->{status};
+                $mopenvz->{uptime}  = $item->{uptime};
                 $mopenvz->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
                 $mopenvz->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
                 $mopenvz->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
@@ -518,15 +523,8 @@ foreach my $item( @$objects ) {
                 print "Found $mqemu->{name} in resource list\n"
                   if $debug;
 
-                $mqemu->{status} = $status{critical}
-                  if $item->{status} eq 'stopped';
-
-                $mqemu->{status} = $status{warning}
-                  if $item->{status} eq 'suspend';
-
-                $mqemu->{status} = $status{ok}
-                  if $item->{status} eq 'running';
-
+                $mqemu->{alive}   = $item->{status};
+                $mqemu->{uptime}  = $item->{uptime};
                 $mqemu->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
                 $mqemu->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
                 $mqemu->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
@@ -581,7 +579,8 @@ if (defined $arguments{nodes}) {
             $reportSummary .= "NODE $mnode->{name} $rstatus{$mnode->{status}} : " .
                               "cpu $rstatus{$mnode->{cpu_status}} ($mnode->{curcpu}%), " . 
                               "mem $rstatus{$mnode->{mem_status}} ($mnode->{curmem}%), " . 
-                              "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%)\n";
+                              "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
+                              "uptime $mnode->{uptime}\n";
 
             $workingNodes++;
 
@@ -600,7 +599,7 @@ if (defined $arguments{nodes}) {
       if ( $statusScore > $status{unknown});
 
     print "NODES $rstatus{$statusScore}  $workingNodes / " .
-          scalar(@monitoredNodes) . "\n" . $reportSummary;
+          scalar(@monitoredNodes) . " working nodes\n" . $reportSummary;
 
     exit $statusScore;
 } elsif (defined $arguments{openvz}) {
@@ -610,7 +609,7 @@ if (defined $arguments{nodes}) {
     my $reportSummary = '';
 
     foreach my $mopenvz( @monitoredOpenvz ) {
-        if ($mopenvz->{status} ne $status{unknown}) {
+        if (defined $mopenvz->{status}) {
 
             if (defined $mopenvz->{warn_mem}) {
                 $mopenvz->{mem_status} = $status{warning}
@@ -642,12 +641,22 @@ if (defined $arguments{nodes}) {
                   if $mopenvz->{curcpu} > $mopenvz->{crit_cpu};
             }
 
+            if (defined $mopenvz->{alive}) {
+                if ($mopenvz->{alive} eq "running") {
+                     $mopenvz->{status} = $status{ok};
+                     $workingVms++;
+                }
+                else {
+                    $mopenvz->{status} = $status{critical};
+                    $statusScore += $status{critical};
+                }
+            }
+
             $reportSummary .= "OPENVZ $mopenvz->{name} $rstatus{$mopenvz->{status}} : " .
                               "cpu $rstatus{$mopenvz->{cpu_status}} ($mopenvz->{curcpu}%), " .
                               "mem $rstatus{$mopenvz->{mem_status}} ($mopenvz->{curmem}%), " .
-                              "disk $rstatus{$mopenvz->{disk_status}} ($mopenvz->{curdisk}%)\n";
-
-            $workingVms++;
+                              "disk $rstatus{$mopenvz->{disk_status}} ($mopenvz->{curdisk}%) " .
+                              "uptime $mopenvz->{uptime}\n";
 
             $statusScore += $mopenvz->{cpu_status} + $mopenvz->{mem_status} + $mopenvz->{disk_status};
 
@@ -713,7 +722,7 @@ if (defined $arguments{nodes}) {
     my $reportSummary = '';
 
     foreach my $mqemu( @monitoredQemus ) {
-        if ($mqemu->{status} ne $status{unknown}) {
+        if (defined $mqemu->{status}) {
             if (defined $mqemu->{warn_mem}) {
                 $mqemu->{mem_status} = $status{warning}
                   if $mqemu->{curmem} > $mqemu->{warn_mem};
@@ -744,16 +753,26 @@ if (defined $arguments{nodes}) {
                   if $mqemu->{curcpu} > $mqemu->{crit_cpu};
             }
 
+            if (defined $mqemu->{alive}) {
+                if ($mqemu->{alive} eq "running") {
+                    $mqemu->{status} = $status{ok};
+                    $workingVms++;
+                }
+                else {
+                    $statusScore += $status{critical};
+                    $mqemu->{status} = $status{critical};
+                }
+            }
+
             $statusScore += $mqemu->{cpu_status} + $mqemu->{mem_status} + $mqemu->{disk_status};
 
             $reportSummary .= "QEMU $mqemu->{name} $rstatus{$mqemu->{status}} : " .
                               "cpu $rstatus{$mqemu->{cpu_status}} ($mqemu->{curcpu}%), " .
                               "mem $rstatus{$mqemu->{mem_status}} ($mqemu->{curmem}%), " .
-                              "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%)\n";
+                              "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%)" .
+                              "uptime $mqemu->{uptime}\n";
 
             $statusScore++ if $statusScore eq $status{unknown};
-
-            $workingVms++;
         }
         else {
             $reportSummary .= "QEMU $mqemu->{name} " .
