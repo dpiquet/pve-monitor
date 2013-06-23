@@ -6,23 +6,39 @@
 #
 #####################################################
 #
-#   Script written by Damien PIQUET  damien.piquet@iutbeziers.fr || piqudam@gmail.com
+#   Script written by Damien PIQUET
+#     damien.piquet@iutbeziers.fr || piqudam@gmail.com
 #
-#   Requires Net::Proxmox::VE librairy: git://github.com/dpiquet/proxmox-ve-api-perl.git
+#   Requires Net::Proxmox::VE librairy:
+#     git://github.com/dpiquet/proxmox-ve-api-perl.git
+#
+# License Information:
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
 use strict;
 use warnings;
 
-use lib './lib';
 use Net::Proxmox::VE;
 use Data::Dumper;
 use Getopt::Long;
 use Switch;
 
-my $debug = 1;
+my $debug = undef;
 my $timeout = 5;
 my $configurationFile = './pve-monitor.conf';
+my $pluginVersion = '0.9';
 
 my %status = (
     'ok'       => 0,
@@ -34,23 +50,37 @@ my %status = (
 my %rstatus = reverse %status;
 
 my %arguments = (
-    'nodes'    => undef,
-    'storages' => undef,
-    'openvz'   => undef,
-    'qemu'     => undef,
-    'conf'     => undef,
+    'nodes'        => undef,
+    'storages'     => undef,
+    'openvz'       => undef,
+    'qemu'         => undef,
+    'conf'         => undef,
+    'show_help'    => undef,
+    'show_version' => undef,
 );
 
 sub usage {
     print "Usage: $0 [--node] [--storage] [--qemu] [--openvz] --conf <file>\n";
 }
 
-GetOptions ("nodes"    => \$arguments{nodes},
-            "storages" => \$arguments{storages},
-            "openvz"   => \$arguments{openvz},
-            "qemu"     => \$arguments{qemu},
-            "conf=s"     => \$arguments{conf},
+GetOptions ("nodes"     => \$arguments{nodes},
+            "storages"  => \$arguments{storages},
+            "openvz"    => \$arguments{openvz},
+            "qemu"      => \$arguments{qemu},
+            "conf=s"    => \$arguments{conf},
+            'version|V' => \$arguments{show_version},
+            'help|h'    => \$arguments{show_help},
 );
+
+if (defined $arguments{show_version}) {
+    print "$0 version $pluginVersion\n";
+    exit $status{unknown};
+}
+
+if (defined $arguments{show_help}) {
+    usage();
+    exit $status{unknown};
+}
 
 if (! defined $arguments{conf}) {
     usage();
