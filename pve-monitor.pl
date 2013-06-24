@@ -50,14 +50,14 @@ my %status = (
 my %rstatus = reverse %status;
 
 my %arguments = (
-    'nodes'        => undef,
-    'storages'     => undef,
-    'openvz'       => undef,
-    'qemu'         => undef,
-    'conf'         => undef,
-    'show_help'    => undef,
-    'show_version' => undef,
-    'timeout'      => 5,
+    'nodes'          => undef,
+    'storages'       => undef,
+    'openvz'         => undef,
+    'qemu'           => undef,
+    'conf'           => undef,
+    'show_help'      => undef,
+    'show_version'   => undef,
+    'timeout'        => 5,
 );
 
 sub usage {
@@ -82,6 +82,14 @@ GetOptions ("nodes"     => \$arguments{nodes},
             'help|h'    => \$arguments{show_help},
             'timeout|t' => \$arguments{timeout},
 );
+
+# set the alarm to timeout plugin
+# before reading configuration file
+local $SIG{ALRM} = sub {
+    print "Timout !\n";
+    exit $status{unknown};
+};
+alarm $arguments{timeout};
 
 if (defined $arguments{show_version}) {
     print "$0 version $pluginVersion\n";
@@ -425,7 +433,10 @@ close(FILE);
 if ( $readingObject ) {
     print "Invalid configuration ! (Probably missing '}' ) \n";
     exit $status{unknown};
-}   
+}
+
+# Reset alarm to give a value relative to the number of nodes
+alarm ($arguments{timeout} * scalar(@monitoredNodes));
 
 for($a = 0; $a < scalar(@monitoredNodes); $a++) {
     my $host     = $monitoredNodes[$a]->{address} or next;
