@@ -656,18 +656,21 @@ if (defined $arguments{nodes}) {
                 if ($mopenvz->{alive} eq "running") {
                      $mopenvz->{status} = $status{OK};
                      $workingVms++;
+
+                     $reportSummary .= "OPENVZ $mopenvz->{name} $rstatus{$mopenvz->{status}} : " .
+                                       "cpu $rstatus{$mopenvz->{cpu_status}} ($mopenvz->{curcpu}%), " .
+                                       "mem $rstatus{$mopenvz->{mem_status}} ($mopenvz->{curmem}%), " .
+                                       "disk $rstatus{$mopenvz->{disk_status}} ($mopenvz->{curdisk}%) " .
+                                       "uptime $mopenvz->{uptime}\n";
                 }
                 else {
                     $mopenvz->{status} = $status{CRITICAL};
                     $statusScore += $status{CRITICAL};
+
+                    $reportSummary .= "OPENVZ $mopenvz->{name} $rstatus{$mopenvz->{status}} : VM is $mopenvz->{alive}\n";
                 }
             }
 
-            $reportSummary .= "OPENVZ $mopenvz->{name} $rstatus{$mopenvz->{status}} : " .
-                              "cpu $rstatus{$mopenvz->{cpu_status}} ($mopenvz->{curcpu}%), " .
-                              "mem $rstatus{$mopenvz->{mem_status}} ($mopenvz->{curmem}%), " .
-                              "disk $rstatus{$mopenvz->{disk_status}} ($mopenvz->{curdisk}%) " .
-                              "uptime $mopenvz->{uptime}\n";
 
             $statusScore += $mopenvz->{cpu_status} + $mopenvz->{mem_status} + $mopenvz->{disk_status};
 
@@ -768,8 +771,16 @@ if (defined $arguments{nodes}) {
                 if ($mqemu->{alive} eq "running") {
                     $mqemu->{status} = $status{OK};
                     $workingVms++;
+
+                    $reportSummary .= "QEMU $mqemu->{name} $rstatus{$mqemu->{status}} : " .
+                                      "cpu $rstatus{$mqemu->{cpu_status}} ($mqemu->{curcpu}%), " .
+                                      "mem $rstatus{$mqemu->{mem_status}} ($mqemu->{curmem}%), " .
+                                      "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%) " .
+                                      "uptime $mqemu->{uptime}\n";
                 }
                 else {
+                    $reportSummary .= "QEMU $mqemu->{name} $rstatus{$mqemu->{status}} : VM is $mqemu->{alive}\n";
+
                     $statusScore += $status{CRITICAL};
                     $mqemu->{status} = $status{CRITICAL};
                 }
@@ -777,11 +788,6 @@ if (defined $arguments{nodes}) {
 
             $statusScore += $mqemu->{cpu_status} + $mqemu->{mem_status} + $mqemu->{disk_status};
 
-            $reportSummary .= "QEMU $mqemu->{name} $rstatus{$mqemu->{status}} : " .
-                              "cpu $rstatus{$mqemu->{cpu_status}} ($mqemu->{curcpu}%), " .
-                              "mem $rstatus{$mqemu->{mem_status}} ($mqemu->{curmem}%), " .
-                              "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%) " .
-                              "uptime $mqemu->{uptime}\n";
 
             $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
