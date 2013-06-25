@@ -41,10 +41,10 @@ my $configurationFile = './pve-monitor.conf';
 my $pluginVersion = '0.9';
 
 my %status = (
-    'ok'       => 0,
-    'warning'  => 1,
-    'critical' => 2,
-    'unknown'  => 3,
+    'OK'       => 0,
+    'WARNING'  => 1,
+    'CRITICAL' => 2,
+    'UNKNOWN'  => 3,
 );
 
 my %rstatus = reverse %status;
@@ -87,23 +87,23 @@ GetOptions ("nodes"     => \$arguments{nodes},
 # before reading configuration file
 local $SIG{ALRM} = sub {
     print "Timout !\n";
-    exit $status{unknown};
+    exit $status{UNKNOWN};
 };
 alarm $arguments{timeout};
 
 if (defined $arguments{show_version}) {
     print "$0 version $pluginVersion\n";
-    exit $status{unknown};
+    exit $status{UNKNOWN};
 }
 
 if (defined $arguments{show_help}) {
     usage();
-    exit $status{unknown};
+    exit $status{UNKNOWN};
 }
 
 if (! defined $arguments{conf}) {
     usage();
-    exit $status{unknown};
+    exit $status{UNKNOWN};
 }
 
 # Arrays for objects to monitor
@@ -125,7 +125,7 @@ my $readingObject = 0;
 if (! open FILE, "<", "$arguments{conf}") {
     print "$!\n" if $debug;
     print "Cannot load configuration file $arguments{conf} !\n";
-    exit $status{unknown};
+    exit $status{UNKNOWN};
 }
 
 while ( <FILE> ) {
@@ -189,7 +189,7 @@ while ( <FILE> ) {
                              }
                              else {
                                  print "Invalid token $1 in $name definition !\n";
-                                 exit $status{unknown};
+                                 exit $status{UNKNOWN};
                              }
                          }
                      }
@@ -197,7 +197,7 @@ while ( <FILE> ) {
                          # check object requirements are met, save it, break
                          if (! defined $name ) {
                              print "Invalid configuration !";
-                             exit $status{unknown};
+                             exit $status{UNKNOWN};
                          }
 
                          print "Loaded node $name\n"
@@ -216,14 +216,14 @@ while ( <FILE> ) {
                                  crit_cpu     => $critCpu,
                                  crit_mem     => $critMem,
                                  crit_disk    => $critDisk,
-                                 cpu_status   => $status{ok},
-                                 mem_status   => $status{ok},
-                                 disk_status  => $status{ok},
+                                 cpu_status   => $status{OK},
+                                 mem_status   => $status{OK},
+                                 disk_status  => $status{OK},
                                  alive        => 0,
                                  curmem       => undef,
                                  curdisk      => undef,
                                  curcpu       => undef,
-                                 status       => $status{unknown},
+                                 status       => $status{UNKNOWN},
                                  uptime       => undef,
                              },
                          );
@@ -252,7 +252,7 @@ while ( <FILE> ) {
                              }
                              else {
                                  print "Invalid token $1 in $name definition !\n";
-                                 exit $status{unknown};
+                                 exit $status{UNKNOWN};
                              }
                          }
                      }
@@ -260,7 +260,7 @@ while ( <FILE> ) {
                          # check object requirements are met, save it, break
                          if (! defined $name ) {
                              print "Invalid configuration !";
-                             exit $status{unknown};
+                             exit $status{UNKNOWN};
                          }
 
                          print "Loaded storage $name\n"
@@ -271,8 +271,8 @@ while ( <FILE> ) {
                                  warn_disk    => $warnDisk,
                                  crit_disk    => $critDisk,
                                  curdisk      => undef,
-                                 disk_status  => $status{ok},
-                                 status       => $status{unknown},
+                                 disk_status  => $status{OK},
+                                 status       => $status{UNKNOWN},
                              },
                          );
                          $readingObject = 0;
@@ -312,7 +312,7 @@ while ( <FILE> ) {
                              }
                              else {
                                  print "Invalid token $1 in $name definition !\n";
-                                 exit $status{unknown};
+                                 exit $status{UNKNOWN};
                              }
                          }
                      }
@@ -320,7 +320,7 @@ while ( <FILE> ) {
                          # check object requirements are met, save it, break
                          if (! defined $name ) {
                              print "Invalid configuration !";
-                             exit $status{unknown};
+                             exit $status{UNKNOWN};
                          }
 
                          print "Loaded openvz $name\n"
@@ -338,10 +338,10 @@ while ( <FILE> ) {
                                  curmem       => undef,
                                  curdisk      => undef,
                                  curcpu       => undef,
-                                 cpu_status   => $status{ok},
-                                 mem_status   => $status{ok},
-                                 disk_status  => $status{ok},
-                                 status       => $status{unknown},
+                                 cpu_status   => $status{OK},
+                                 mem_status   => $status{OK},
+                                 disk_status  => $status{OK},
+                                 status       => $status{UNKNOWN},
                                  uptime       => undef,
                              },
                          );
@@ -381,7 +381,7 @@ while ( <FILE> ) {
                              }
                              else {
                                  print "Invalid token $1 in $name definition !\n";
-                                 exit $status{unknown};
+                                 exit $status{UNKNOWN};
                              }
                          }
                      }
@@ -389,7 +389,7 @@ while ( <FILE> ) {
                          # check object requirements are met, save it, break
                          if (! defined $name ) {
                              print "Invalid configuration !\n";
-                             exit $status{unknown};
+                             exit $status{UNKNOWN};
                          }
 
                          print "Loaded qemu $name\n"
@@ -408,10 +408,10 @@ while ( <FILE> ) {
                                  curmem       => undef,
                                  curdisk      => undef,
                                  curcpu       => undef,
-                                 cpu_status   => $status{ok},
-                                 mem_status   => $status{ok},
-                                 disk_status  => $status{ok},
-                                 status       => $status{unknown},
+                                 cpu_status   => $status{OK},
+                                 mem_status   => $status{OK},
+                                 disk_status  => $status{OK},
+                                 status       => $status{UNKNOWN},
                                  uptime       => undef,
                              },
                          );
@@ -422,7 +422,7 @@ while ( <FILE> ) {
              }
              else {
                  print "Invalid token $1 in configuration file $arguments{conf} !\n";
-                 exit $status{unknown};
+                 exit $status{UNKNOWN};
              }
          }
     }
@@ -432,7 +432,7 @@ close(FILE);
 
 if ( $readingObject ) {
     print "Invalid configuration ! (Probably missing '}' ) \n";
-    exit $status{unknown};
+    exit $status{UNKNOWN};
 }
 
 # Reset alarm to give a value relative to the number of nodes
@@ -471,7 +471,7 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
 
 if (! $connected ) {
     print "Could not connect to any server !";
-    exit $status{unknown};
+    exit $status{UNKNOWN};
 }
 
 # list all ressources of the cluster
@@ -491,7 +491,7 @@ foreach my $item( @$objects ) {
                 print "Found $mnode->{name} in resource list\n"
                   if $debug;
 
-                $mnode->{status}  = $status{ok};
+                $mnode->{status}  = $status{OK};
                 $mnode->{uptime}  = $item->{uptime};
                 $mnode->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
                 $mnode->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
@@ -505,7 +505,7 @@ foreach my $item( @$objects ) {
                 print "Found $mstorage->{name} in resource list\n"
                   if $debug;
 
-                $mstorage->{status} = $status{ok};
+                $mstorage->{status} = $status{OK};
 
                 $mstorage->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
             }
@@ -556,34 +556,34 @@ if (defined $arguments{nodes}) {
     foreach my $mnode( @monitoredNodes ) {
         $statusScore += $mnode->{status};
         
-        if ($mnode->{status} ne $status{unknown}) {
+        if ($mnode->{status} ne $status{UNKNOWN}) {
             if (defined $mnode->{warn_mem}) {
-                $mnode->{mem_status} = $status{warning}
+                $mnode->{mem_status} = $status{WARNING}
                   if ($mnode->{curmem} > $mnode->{warn_mem});
             }
 
             if (defined $mnode->{crit_mem}) {
-                $mnode->{mem_status} = $status{critical}
+                $mnode->{mem_status} = $status{CRITICAL}
                   if ($mnode->{curmem} > $mnode->{crit_mem});
             }
 
             if (defined $mnode->{warn_disk}) {
-                $mnode->{disk_status} = $status{warning}
+                $mnode->{disk_status} = $status{WARNING}
                   if ($mnode->{curdisk} > $mnode->{warn_disk});
             }
 
             if (defined $mnode->{crit_disk}) {
-                $mnode->{disk_status} = $status{critical}
+                $mnode->{disk_status} = $status{CRITICAL}
                   if ($mnode->{curdisk} > $mnode->{crit_disk});
             }
 
             if (defined $mnode->{warn_cpu}) {
-                $mnode->{cpu_status} = $status{warning}
+                $mnode->{cpu_status} = $status{WARNING}
                   if ($mnode->{curcpu} > $mnode->{warn_cpu});
             }
 
             if (defined $mnode->{crit_cpu}) {
-                $mnode->{crit_cpu} = $status{warning}
+                $mnode->{crit_cpu} = $status{CRITICAL}
                   if ($mnode->{curcpu} > $mnode->{crit_cpu});
             }
 
@@ -598,16 +598,16 @@ if (defined $arguments{nodes}) {
             $statusScore += $mnode->{cpu_status} + $mnode->{mem_status} + $mnode->{disk_status};
 
             # Do not leave $statusScore at level unknown here
-            $statusScore++ if $statusScore eq $status{unknown};
+            $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
         else {
             $reportSummary .= "NODE $mnode->{name} " .
-                              "is in status $rstatus{$status{unknown}}\n";
+                              "is in status $rstatus{$status{UNKNOWN}}\n";
         }
     }
 
-    $statusScore = $status{critical}
-      if ( $statusScore > $status{unknown});
+    $statusScore = $status{CRITICAL}
+      if ( $statusScore > $status{UNKNOWN});
 
     print "NODES $rstatus{$statusScore}  $workingNodes / " .
           scalar(@monitoredNodes) . " working nodes\n" . $reportSummary;
@@ -623,43 +623,43 @@ if (defined $arguments{nodes}) {
         if (defined $mopenvz->{status}) {
 
             if (defined $mopenvz->{warn_mem}) {
-                $mopenvz->{mem_status} = $status{warning}
+                $mopenvz->{mem_status} = $status{WARNING}
                   if ($mopenvz->{curmem} > $mopenvz->{warn_mem});
             }
 
             if (defined $mopenvz->{crit_mem}) {
-                $mopenvz->{mem_status} = $status{critical}
+                $mopenvz->{mem_status} = $status{CRITICAL}
                   if $mopenvz->{curmem} > $mopenvz->{crit_mem};
             }
 
             if (defined $mopenvz->{warn_disk}) {
-                $$mopenvz->{disk_status} = $status{warning}
+                $$mopenvz->{disk_status} = $status{WARNING}
                   if $mopenvz->{curdisk} > $mopenvz->{warn_disk};
             }
 
             if (defined $mopenvz->{crit_disk}) {
-                $mopenvz->{disk_status} = $status{critical}
+                $mopenvz->{disk_status} = $status{CRITICAL}
                   if $mopenvz->{curdisk} > $mopenvz->{crit_disk};
             }
 
             if (defined $mopenvz->{warn_cpu}) {
-                $mopenvz->{cpu_status} = $status{warning}
+                $mopenvz->{cpu_status} = $status{WARNING}
                   if $mopenvz->{curcpu} > $mopenvz->{warn_cpu};
             }
 
             if (defined $mopenvz->{crit_cpu}) {
-                $mopenvz->{cpu_status} = $status{critical}
+                $mopenvz->{cpu_status} = $status{CRITICAL}
                   if $mopenvz->{curcpu} > $mopenvz->{crit_cpu};
             }
 
             if (defined $mopenvz->{alive}) {
                 if ($mopenvz->{alive} eq "running") {
-                     $mopenvz->{status} = $status{ok};
+                     $mopenvz->{status} = $status{OK};
                      $workingVms++;
                 }
                 else {
-                    $mopenvz->{status} = $status{critical};
-                    $statusScore += $status{critical};
+                    $mopenvz->{status} = $status{CRITICAL};
+                    $statusScore += $status{CRITICAL};
                 }
             }
 
@@ -671,16 +671,16 @@ if (defined $arguments{nodes}) {
 
             $statusScore += $mopenvz->{cpu_status} + $mopenvz->{mem_status} + $mopenvz->{disk_status};
 
-            $statusScore++ if $statusScore eq $status{unknown};
+            $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
         else {
             $reportSummary .= "OPENVZ $mopenvz->{name} " .
-                              "is in status $rstatus{$status{unknown}}\n";
+                              "is in status $rstatus{$status{UNKNOWN}}\n";
         }
     }
 
-    $statusScore = $status{critical}
-      if ($statusScore > 3);
+    $statusScore = $status{CRITICAL}
+      if ($statusScore > $status{UNKNOWN});
 
     print "OPENVZ $rstatus{$statusScore} $workingVms / " .
           scalar(@monitoredOpenvz) . " working VMs\n" . $reportSummary;
@@ -693,14 +693,14 @@ if (defined $arguments{nodes}) {
     my $reportSummary = '';
 
     foreach my $mstorage( @monitoredStorages ) {
-        if ($mstorage->{status} ne $status{unknown}) {
+        if ($mstorage->{status} ne $status{UNKNOWN}) {
             if (defined $mstorage->{warn_disk}) {
-                $mstorage->{disk_status} = $status{warning}
+                $mstorage->{disk_status} = $status{WARNING}
                   if $mstorage->{curdisk} > $mstorage->{warn_disk};
             }
 
             if (defined $mstorage->{crit_disk}) {
-                $mstorage->{disk_status} = $status{critical}
+                $mstorage->{disk_status} = $status{CRITICAL}
                   if $mstorage->{curdisk} > $mstorage->{crit_disk};
             }
 
@@ -711,16 +711,16 @@ if (defined $arguments{nodes}) {
 
 	    $statusScore += $mstorage->{disk_status};
 
-            $statusScore++ if $statusScore eq $status{unknown};
+            $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
         else {
             $reportSummary .= "STORAGE $mstorage->{name} " .
-                              "is in status $rstatus{$status{unknown}}\n";
+                              "is in status $rstatus{$status{UNKNOWN}}\n";
         }
     }
 
-    $statusScore = $status{critical}
-      if ($statusScore > 3);
+    $statusScore = $status{CRITICAL}
+      if ($statusScore > $status{UNKNOWN});
 
     print "STORAGE $rstatus{$statusScore} $workingStorages / " .
           scalar(@monitoredStorages) . " working storages\n" . $reportSummary;
@@ -735,43 +735,43 @@ if (defined $arguments{nodes}) {
     foreach my $mqemu( @monitoredQemus ) {
         if (defined $mqemu->{status}) {
             if (defined $mqemu->{warn_mem}) {
-                $mqemu->{mem_status} = $status{warning}
+                $mqemu->{mem_status} = $status{WARNING}
                   if $mqemu->{curmem} > $mqemu->{warn_mem};
             }
 
             if (defined $mqemu->{crit_mem}) {
-                $mqemu->{mem_status} = $status{critical}
+                $mqemu->{mem_status} = $status{CRITICAL}
                   if $mqemu->{curmem} > $mqemu->{crit_mem};
             }
 
             if (defined $mqemu->{warn_disk}) {
-                $mqemu->{disk_status} = $status{warning}
+                $mqemu->{disk_status} = $status{WARNING}
                   if $mqemu->{curdisk} > $mqemu->{warn_disk};
             }
 
             if (defined $mqemu->{crit_disk}) {
-                $mqemu->{disk_status} = $status{critical}
+                $mqemu->{disk_status} = $status{CRITICAL}
                   if $mqemu->{curdisk} > $mqemu->{crit_disk};
             }
 
             if (defined $mqemu->{warn_cpu}) {
-                $mqemu->{cpu_status} = $status{warning}
+                $mqemu->{cpu_status} = $status{WARNING}
                   if $mqemu->{curcpu} > $mqemu->{warn_cpu};
             }
 
             if (defined $mqemu->{crit_cpu}) {
-                $mqemu->{cpu_status} = $status{critical}
+                $mqemu->{cpu_status} = $status{CRITICAL}
                   if $mqemu->{curcpu} > $mqemu->{crit_cpu};
             }
 
             if (defined $mqemu->{alive}) {
                 if ($mqemu->{alive} eq "running") {
-                    $mqemu->{status} = $status{ok};
+                    $mqemu->{status} = $status{OK};
                     $workingVms++;
                 }
                 else {
-                    $statusScore += $status{critical};
-                    $mqemu->{status} = $status{critical};
+                    $statusScore += $status{CRITICAL};
+                    $mqemu->{status} = $status{CRITICAL};
                 }
             }
 
@@ -783,16 +783,16 @@ if (defined $arguments{nodes}) {
                               "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%) " .
                               "uptime $mqemu->{uptime}\n";
 
-            $statusScore++ if $statusScore eq $status{unknown};
+            $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
         else {
             $reportSummary .= "QEMU $mqemu->{name} " .
-                              "is in status $rstatus{$status{unknown}}\n";
+                              "is in status $rstatus{$status{UNKNOWN}}\n";
         }
     }
 
-    $statusScore = $status{critical}
-      if ($statusScore > $status{unknown});
+    $statusScore = $status{CRITICAL}
+      if ($statusScore > $status{UNKNOWN});
 
     print "QEMU $rstatus{$statusScore} $workingVms / " .
           scalar(@monitoredQemus) . " working VMs\n" .
@@ -801,5 +801,5 @@ if (defined $arguments{nodes}) {
     exit $statusScore;
 } else {
     usage();
-    exit $status{unknown};
+    exit $status{UNKNOWN};
 }
