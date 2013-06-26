@@ -73,6 +73,10 @@ sub usage {
     print "    Check the state of the cluster's OpenVZ virtual machines\n";
 }
 
+sub is_number {
+    ($_[0] =~ m/^[0-9]+$/) ? return 1 : return 0;
+}
+
 GetOptions ("nodes"     => \$arguments{nodes},
             "storages"  => \$arguments{storages},
             "openvz"    => \$arguments{openvz},
@@ -86,7 +90,7 @@ GetOptions ("nodes"     => \$arguments{nodes},
 # set the alarm to timeout plugin
 # before reading configuration file
 local $SIG{ALRM} = sub {
-    print "Timout !\n";
+    print "Timeout !\n";
     exit $status{UNKNOWN};
 };
 alarm $arguments{timeout};
@@ -161,22 +165,46 @@ while ( <FILE> ) {
 
                          switch ($1) {
                              case "cpu" {
-                                 $warnCpu = $2;
-                                 $critCpu = $3;
+                                 if ((is_number $2)and(is_number $4)) {
+                                     $warnCpu = $2;
+                                     $critCpu = $4;
+                                 }
+                                 else {
+                                     print "Invalid CPU declaration in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
                              }
                              case "mem" {
-                                 $warnMem = $2;
-                                 $critMem = $3;
+                                 if ((is_number $2)and(is_number $4)) {
+                                     $warnMem = $2;
+                                     $critMem = $4;
+                                 }
+                                 else {
+                                     print "Invalid MEM declaration in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
                              }
                              case "disk" {
-                                 $warnDisk = $2;
-                                 $critDisk = $3;
+                                 if ((is_number $2)and(is_number $4)) {
+                                     $warnDisk = $2;
+                                     $critDisk = $4;
+                                 }
+                                 else {
+                                     print "Invalid DISK declaration in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
                              }
                              case "address" {
                                  $nAddr = $2;
                              }
                              case "port" {
-                                 $nPort = $2;
+                                 if (is_number $2) {
+                                     $nPort = $2;
+                                 }
+                                 else {
+                                     print "Invalid PORT declaration in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
                              }
                              case "monitor_account" {
                                  $nUser = $2;
@@ -247,8 +275,14 @@ while ( <FILE> ) {
                      if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)\s+([\w\.]+)/i ) {
                          switch ($1) {
                              case "disk" {
-                                 $warnDisk = $2;
-                                 $critDisk = $3;
+                                 if ((is_number $2)and(is_number $3)) {
+                                     $warnDisk = $2;
+                                     $critDisk = $3;
+                                 }
+                                 else {
+                                     print "Invalid DISK declaration in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
                              }
                              else {
                                  print "Invalid token $1 in $name definition !\n";
@@ -299,16 +333,34 @@ while ( <FILE> ) {
                      if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)\s+([\w\.]+)/i ) {
                          switch ($1) {
                              case "cpu" {
-                                 $warnCpu = $2;
-                                 $critCpu = $3;
+                                 if ((is_number $2) and (is_number $3)) {
+                                     $warnCpu = $2;
+                                     $critCpu = $3;
+                                 }
+                                 else {
+                                     print "Invalid CPU declaration in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
                              }
                              case "mem" {
-                                 $warnMem = $2;
-                                 $critMem = $3;
+                                 if ((is_number $2) and (is_number $3)) {
+                                     $warnMem = $2;
+                                     $critMem = $3;
+                                 }
+                                 else {
+                                     print "Invalid MEM declaration in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
                              }
-                             case "disk" {
-                                 $warnDisk = $2;
-                                 $critDisk = $3;
+                             case "disk" { 
+                                 if ((is_number $2) and (is_number $3)) {
+                                     $warnDisk = $2;
+                                     $critDisk = $3;
+                                 }
+                                 else {
+                                     print "Invalid DISK declaration in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
                              }
                              else {
                                  print "Invalid token $1 in $name definition !\n";
@@ -368,16 +420,34 @@ while ( <FILE> ) {
                      if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)\s+([\w\.]+)/i ) {
                          switch ($1) {
                              case "cpu" {
-                                 $warnCpu = $2;
-                                 $critCpu = $3;
+                                 if ((is_number $2)and(is_number $3)) {
+                                     $warnCpu = $2;
+                                     $critCpu = $3;
+                                 }
+                                 else {
+                                     print "Invalid CPU declaration in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
                              }
                              case "mem" {
-                                 $warnMem = $2;
-                                 $critMem = $3;
+                                 if ((is_number $2)and(is_number $3)) {
+                                     $warnMem = $2;
+                                     $critMem = $3;
+                                 }
+                                 else {
+                                     print "Invalid MEM declaration in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
                              }
                              case "disk" {
-                                 $warnDisk = $2;
-                                 $critDisk = $3;
+                                 if ((is_number $2)and(is_number $3)) {
+                                     $warnDisk = $2;
+                                     $critDisk = $3;
+                                 }
+                                 else {
+                                     print "Invalid DISK declaration in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
                              }
                              else {
                                  print "Invalid token $1 in $name definition !\n";
