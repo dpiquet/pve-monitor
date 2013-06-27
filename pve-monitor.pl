@@ -30,13 +30,11 @@
 use strict;
 use warnings;
 
-use lib './lib';
 use Net::Proxmox::VE;
 use Data::Dumper;
 use Getopt::Long;
 use Switch;
 
-my $debug = undef;
 my $configurationFile = './pve-monitor.conf';
 my $pluginVersion = '0.9';
 
@@ -58,6 +56,7 @@ my %arguments = (
     'show_help'      => undef,
     'show_version'   => undef,
     'timeout'        => 5,
+    'debug'          => undef,
 );
 
 sub usage {
@@ -85,6 +84,7 @@ GetOptions ("nodes"     => \$arguments{nodes},
             'version|V' => \$arguments{show_version},
             'help|h'    => \$arguments{show_help},
             'timeout|t' => \$arguments{timeout},
+            'debug'     => \$arguments{debug},
 );
 
 # set the alarm to timeout plugin
@@ -127,7 +127,7 @@ my $readingObject = 0;
 
 # Read the configuration file
 if (! open FILE, "<", "$arguments{conf}") {
-    print "$!\n" if $debug;
+    print "$!\n" if $arguments{debug};
     print "Cannot load configuration file $arguments{conf} !\n";
     exit $status{UNKNOWN};
 }
@@ -160,7 +160,7 @@ while ( <FILE> ) {
                  while (<FILE>) {
                      my $objLine = $_;
 
-                     next if ( $objLine =~ m/^#/i );
+                     next if ( $objLine =~ m/^(\s+)?#/ );
                      if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)(\s+([\w\.]+))?/i ) {
 
                          switch ($1) {
@@ -229,7 +229,7 @@ while ( <FILE> ) {
                          }
 
                          print "Loaded node $name\n"
-                           if $debug;
+                           if $arguments{debug};
 
                          $monitoredNodes[scalar(@monitoredNodes)] = ({
                                  name         => $name,
@@ -258,6 +258,10 @@ while ( <FILE> ) {
                          
                          $readingObject = 0;
                          last;
+                     }
+                     else {
+                         print "Invalid line " . chomp($objLine) . " at line $. !\n"
+                           if $arguments{debug};
                      }
                  }
              }
@@ -298,7 +302,7 @@ while ( <FILE> ) {
                          }
 
                          print "Loaded storage $name\n"
-                           if $debug;
+                           if $arguments{debug};
 
                          $monitoredStorages[scalar(@monitoredStorages)] = ({
                                  name         => $name,
@@ -376,7 +380,7 @@ while ( <FILE> ) {
                          }
 
                          print "Loaded openvz $name\n"
-                           if $debug;
+                           if $arguments{debug};
 
                          $monitoredOpenvz[scalar(@monitoredOpenvz)] = ({
                                  name         => $name,
@@ -463,7 +467,7 @@ while ( <FILE> ) {
                          }
 
                          print "Loaded qemu $name\n"
-                           if $debug;
+                           if $arguments{debug};
 
                          $monitoredQemus[scalar(@monitoredQemus)] = (
                              {
@@ -516,13 +520,13 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
     my $realm    = $monitoredNodes[$a]->{realm} or next;
 
     print "Trying " . $host . "...\n"
-      if $debug;
+      if $arguments{debug};
 
     $pve = Net::Proxmox::VE->new(
         host     => $host,
         username => $username,
         password => $password,
-        debug    => $debug,
+        debug    => $arguments{debug},
         realm    => $realm,
         timeout  => $arguments{timeout},
     );
@@ -533,7 +537,7 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
 
     # Here we are connected, quit the loop
     print "Successfully connected to " . $host . " !\n"
-      if $debug;
+      if $arguments{debug};
 
     $connected = 1;
     last;
@@ -548,7 +552,7 @@ if (! $connected ) {
 my $objects = $pve->get('/cluster/resources');
 
 print "Found " . scalar(@$objects) . " objects:\n"
-  if $debug;
+  if $arguments{debug};
 
 # loop the objects to compare our definitions with the current state of the cluster
 foreach my $item( @$objects ) { 
@@ -559,7 +563,7 @@ foreach my $item( @$objects ) {
                 next unless ($item->{node} eq $mnode->{name});
 
                 print "Found $mnode->{name} in resource list\n"
-                  if $debug;
+                  if $arguments{debug};
 
                 $mnode->{status}  = $status{OK};
                 $mnode->{uptime}  = $item->{uptime};
@@ -573,7 +577,7 @@ foreach my $item( @$objects ) {
                 next unless ($item->{storage} eq $mstorage->{name});
 
                 print "Found $mstorage->{name} in resource list\n"
-                  if $debug;
+                  if $arguments{debug};
 
                 $mstorage->{status} = $status{OK};
 
@@ -587,7 +591,7 @@ foreach my $item( @$objects ) {
                 next unless ($item->{name} eq $mopenvz->{name});
 
                 print "Found $mopenvz->{name} in resource list\n"
-                  if $debug;
+                  if $arguments{debug};
 
                 $mopenvz->{alive}   = $item->{status};
                 $mopenvz->{uptime}  = $item->{uptime};
@@ -602,7 +606,7 @@ foreach my $item( @$objects ) {
                 next unless ($item->{name} eq $mqemu->{name});
 
                 print "Found $mqemu->{name} in resource list\n"
-                  if $debug;
+                  if $arguments{debug};
 
                 $mqemu->{alive}   = $item->{status};
                 $mqemu->{uptime}  = $item->{uptime};
