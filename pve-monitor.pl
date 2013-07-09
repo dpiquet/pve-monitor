@@ -269,6 +269,7 @@ while ( <FILE> ) {
                  my $name     = $2;
                  my $warnDisk = undef;
                  my $critDisk = undef;
+                 my $node = undef;
 
                  $readingObject = 1;
 
@@ -276,17 +277,20 @@ while ( <FILE> ) {
                      my $objLine = $_;
 
                      next if ( $objLine =~ m/^#/i );
-                     if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)\s+([\w\.]+)/i ) {
+                     if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)(\s+([\w\.]+))?/i ) {
                          switch ($1) {
                              case "disk" {
-                                 if ((is_number $2)and(is_number $3)) {
+                                 if ((is_number $2)and(is_number $4)) {
                                      $warnDisk = $2;
-                                     $critDisk = $3;
+                                     $critDisk = $4;
                                  }
                                  else {
                                      print "Invalid DISK declaration in $name definition\n";
                                      exit $status{UNKNOWN};
                                  }
+                             }
+                             case "node" {
+                                 $node = $2;
                              }
                              else {
                                  print "Invalid token $1 in $name definition !\n";
@@ -301,11 +305,17 @@ while ( <FILE> ) {
                              exit $status{UNKNOWN};
                          }
 
+                         if (! defined $node ) {
+                             print "Invalid configuration, missing node in $name storage definition !\n";
+                             exit $status{UNKNOWN};
+                         }
+
                          print "Loaded storage $name\n"
                            if $arguments{debug};
 
                          $monitoredStorages[scalar(@monitoredStorages)] = ({
                                  name         => $name,
+                                 node         => $node,
                                  warn_disk    => $warnDisk,
                                  crit_disk    => $critDisk,
                                  curdisk      => undef,
@@ -565,23 +575,39 @@ foreach my $item( @$objects ) {
                 print "Found $mnode->{name} in resource list\n"
                   if $arguments{debug};
 
-                $mnode->{status}  = $status{OK};
-                $mnode->{uptime}  = $item->{uptime};
-                $mnode->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
-                $mnode->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
-                $mnode->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
+                # if a node is down, many values are not set
+                if(defined $item->{uptime}) {
+                    $mnode->{status}  = $status{OK};
+                    $mnode->{uptime}  = $item->{uptime};
+                    $mnode->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
+                    $mnode->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
+                    $mnode->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
+                }
+                else {
+                    $mnode->{status} = $status{CRITICAL};
+                    $mnode->{uptime} = 0;
+                    $mnode->{curmem} = 0;
+                    $mnode->{curdisk} = 0;
+                    $mnode->{curcpu} = 0;
+                }
             }
         }
         case "storage" {
             foreach my $mstorage( @monitoredStorages ) {
                 next unless ($item->{storage} eq $mstorage->{name});
+                next unless ($item->{node} eq $mstorage->{node});
 
                 print "Found $mstorage->{name} in resource list\n"
                   if $arguments{debug};
 
-                $mstorage->{status} = $status{OK};
-
-                $mstorage->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
+                if (defined $item->{disk} ) {
+                    $mstorage->{status} = $status{OK};
+                    $mstorage->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
+                }
+                else {
+                    $mstorage->{status} = $status{CRITICAL};
+                    $mstorage->{curdisk} = 0;
+                }
             }
 
             next;
@@ -593,11 +619,20 @@ foreach my $item( @$objects ) {
                 print "Found $mopenvz->{name} in resource list\n"
                   if $arguments{debug};
 
-                $mopenvz->{alive}   = $item->{status};
-                $mopenvz->{uptime}  = $item->{uptime};
-                $mopenvz->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
-                $mopenvz->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
-                $mopenvz->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
+                if (defined $item->{status}) {
+                    $mopenvz->{alive}   = $item->{status};
+                    $mopenvz->{uptime}  = $item->{uptime};
+                    $mopenvz->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
+                    $mopenvz->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
+                    $mopenvz->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
+                }
+                else {
+                    $mopenvz->{alive}   = "on dead node";
+                    $mopenvz->{uptime}  = 0;
+                    $mopenvz->{curmem}  = 0;
+                    $mopenvz->{curdisk} = 0;
+                    $mopenvz->{curcpu}  = 0;
+                }
             }
             next;
         }
@@ -608,11 +643,20 @@ foreach my $item( @$objects ) {
                 print "Found $mqemu->{name} in resource list\n"
                   if $arguments{debug};
 
-                $mqemu->{alive}   = $item->{status};
-                $mqemu->{uptime}  = $item->{uptime};
-                $mqemu->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
-                $mqemu->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
-                $mqemu->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
+                if(defined $item->{status}) {
+                    $mqemu->{alive}   = $item->{status};
+                    $mqemu->{uptime}  = $item->{uptime};
+                    $mqemu->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
+                    $mqemu->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
+                    $mqemu->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
+                }
+                else {
+                    $mqemu->{alive}   = "on dead node";
+                    $mqemu->{uptime}  = 0;
+                    $mqemu->{curmem}  = 0;
+                    $mqemu->{curdisk} = 0;
+                    $mqemu->{curcpu}  = 0;
+                }
             }
 
             next;
@@ -667,7 +711,8 @@ if (defined $arguments{nodes}) {
                               "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
                               "uptime $mnode->{uptime}\n";
 
-            $workingNodes++;
+            $workingNodes++
+              if $mnode->{status} eq $status{OK};
 
             $statusScore += $mnode->{cpu_status} + $mnode->{mem_status} + $mnode->{disk_status};
 
