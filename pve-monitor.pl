@@ -409,6 +409,7 @@ while ( <FILE> ) {
                                  disk_status  => $status{OK},
                                  status       => $status{UNKNOWN},
                                  uptime       => undef,
+                                 node         => undef,
                              },
                          );
                          $readingObject = 0;
@@ -497,6 +498,7 @@ while ( <FILE> ) {
                                  disk_status  => $status{OK},
                                  status       => $status{UNKNOWN},
                                  uptime       => undef,
+                                 node         => undef,
                              },
                          );
                          $readingObject = 0;
@@ -625,6 +627,7 @@ foreach my $item( @$objects ) {
                     $mopenvz->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
                     $mopenvz->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
                     $mopenvz->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
+                    $mopenvz->{node}    = $item->{node};
                 }
                 else {
                     $mopenvz->{alive}   = "on dead node";
@@ -646,6 +649,7 @@ foreach my $item( @$objects ) {
                 if(defined $item->{status}) {
                     $mqemu->{alive}   = $item->{status};
                     $mqemu->{uptime}  = $item->{uptime};
+                    $mqemu->{node}    = $item->{node};
                     $mqemu->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
                     $mqemu->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
                     $mqemu->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
@@ -706,7 +710,7 @@ if (defined $arguments{nodes}) {
             }
 
             if ($mnode->{status} ne -1) {
-                $reportSummary .= "NODE $mnode->{name} $rstatus{$mnode->{status}} : " .
+                $reportSummary .= "NODE $mnode->{name} ($mnode->{node}) $rstatus{$mnode->{status}} : " .
                                   "cpu $rstatus{$mnode->{cpu_status}} ($mnode->{curcpu}%), " . 
                                   "mem $rstatus{$mnode->{mem_status}} ($mnode->{curmem}%), " . 
                                   "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
@@ -904,7 +908,7 @@ if (defined $arguments{nodes}) {
                     $mqemu->{status} = $status{OK};
                     $workingVms++;
 
-                    $reportSummary .= "QEMU $mqemu->{name} $rstatus{$mqemu->{status}} : " .
+                    $reportSummary .= "QEMU $mqemu->{name} ($mqemu->{node}) $rstatus{$mqemu->{status}} : " .
                                       "cpu $rstatus{$mqemu->{cpu_status}} ($mqemu->{curcpu}%), " .
                                       "mem $rstatus{$mqemu->{mem_status}} ($mqemu->{curmem}%), " .
                                       "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%) " .
