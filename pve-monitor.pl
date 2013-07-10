@@ -90,7 +90,7 @@ GetOptions ("nodes"     => \$arguments{nodes},
 # set the alarm to timeout plugin
 # before reading configuration file
 local $SIG{ALRM} = sub {
-    print "Timeout !\n";
+    print "Plugin timed out !\n";
     exit $status{UNKNOWN};
 };
 alarm $arguments{timeout};
@@ -605,7 +605,7 @@ foreach my $item( @$objects ) {
                     $mstorage->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
                 }
                 else {
-                    $mstorage->{status} = $status{CRITICAL};
+                    $mstorage->{status} = -1;
                     $mstorage->{curdisk} = 0;
                 }
             }
@@ -732,7 +732,7 @@ if (defined $arguments{nodes}) {
     }
 
     $statusScore = $status{CRITICAL}
-      if ( $statusScore > $status{UNKNOWN});
+      if (( $statusScore > $status{UNKNOWN}) or ($statusScore < 0));
 
     print "NODES $rstatus{$statusScore}  $workingNodes / " .
           scalar(@monitoredNodes) . " working nodes\n" . $reportSummary;
@@ -821,7 +821,14 @@ if (defined $arguments{nodes}) {
     my $reportSummary = '';
 
     foreach my $mstorage( @monitoredStorages ) {
-        if ($mstorage->{status} ne $status{UNKNOWN}) {
+
+        if ($mstorage->{status} eq -1) {
+            $statusScore += $status{CRITICAL};
+
+            $reportSummary .= "$mstorage->{name} ($mstorage->{node}) $rstatus{$status{CRITICAL}}: " .
+                              "storage is on a dead node\n";
+        }
+        elsif ($mstorage->{status} ne $status{UNKNOWN}) {
             if (defined $mstorage->{warn_disk}) {
                 $mstorage->{disk_status} = $status{WARNING}
                   if $mstorage->{curdisk} > $mstorage->{warn_disk};
@@ -832,7 +839,7 @@ if (defined $arguments{nodes}) {
                   if $mstorage->{curdisk} > $mstorage->{crit_disk};
             }
 
-            $reportSummary .= "STORAGE $mstorage->{name} $rstatus{$mstorage->{status}} : " .
+            $reportSummary .= "STORAGE $mstorage->{name} ($mstorage->{node}) $rstatus{$mstorage->{status}} : " .
                               "disk $mstorage->{curdisk}%\n";
 
             $workingStorages++;
