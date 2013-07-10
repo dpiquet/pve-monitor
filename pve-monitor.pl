@@ -520,7 +520,7 @@ if ( $readingObject ) {
 }
 
 # Reset alarm to give a value relative to the number of nodes
-alarm ($arguments{timeout} * scalar(@monitoredNodes));
+alarm ($arguments{timeout} * scalar(@monitoredNodes) + $arguments{timeout});
 
 for($a = 0; $a < scalar(@monitoredNodes); $a++) {
     my $host     = $monitoredNodes[$a]->{address} or next;
