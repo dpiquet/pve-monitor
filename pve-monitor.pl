@@ -584,7 +584,7 @@ foreach my $item( @$objects ) {
                     $mnode->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
                 }
                 else {
-                    $mnode->{status} = $status{CRITICAL};
+                    $mnode->{status} = -1;
                     $mnode->{uptime} = 0;
                     $mnode->{curmem} = 0;
                     $mnode->{curdisk} = 0;
@@ -705,14 +705,20 @@ if (defined $arguments{nodes}) {
                   if ($mnode->{curcpu} > $mnode->{crit_cpu});
             }
 
-            $reportSummary .= "NODE $mnode->{name} $rstatus{$mnode->{status}} : " .
-                              "cpu $rstatus{$mnode->{cpu_status}} ($mnode->{curcpu}%), " . 
-                              "mem $rstatus{$mnode->{mem_status}} ($mnode->{curmem}%), " . 
-                              "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
-                              "uptime $mnode->{uptime}\n";
+            if ($mnode->{status} ne -1) {
+                $reportSummary .= "NODE $mnode->{name} $rstatus{$mnode->{status}} : " .
+                                  "cpu $rstatus{$mnode->{cpu_status}} ($mnode->{curcpu}%), " . 
+                                  "mem $rstatus{$mnode->{mem_status}} ($mnode->{curmem}%), " . 
+                                  "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
+                                  "uptime $mnode->{uptime}\n";
 
-            $workingNodes++
-              if $mnode->{status} eq $status{OK};
+                $workingNodes++
+                  if $mnode->{status} eq $status{OK};
+            }
+            else {
+                $reportSummary .= "NODE $mnode->{name} $rstatus{$status{CRITICAL}} : ".
+                                  "node is out of cluster (dead?)\n";
+            }
 
             $statusScore += $mnode->{cpu_status} + $mnode->{mem_status} + $mnode->{disk_status};
 
