@@ -710,7 +710,7 @@ if (defined $arguments{nodes}) {
             }
 
             if ($mnode->{status} ne -1) {
-                $reportSummary .= "NODE $mnode->{name} ($mnode->{node}) $rstatus{$mnode->{status}} : " .
+                $reportSummary .= "NODE $mnode->{name} $rstatus{$mnode->{status}} : " .
                                   "cpu $rstatus{$mnode->{cpu_status}} ($mnode->{curcpu}%), " . 
                                   "mem $rstatus{$mnode->{mem_status}} ($mnode->{curmem}%), " . 
                                   "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
@@ -786,7 +786,7 @@ if (defined $arguments{nodes}) {
                      $mopenvz->{status} = $status{OK};
                      $workingVms++;
 
-                     $reportSummary .= "OPENVZ $mopenvz->{name} $rstatus{$mopenvz->{status}} : " .
+                     $reportSummary .= "OPENVZ $mopenvz->{name} ($mopenvz->{node}) $rstatus{$mopenvz->{status}} : " .
                                        "cpu $rstatus{$mopenvz->{cpu_status}} ($mopenvz->{curcpu}%), " .
                                        "mem $rstatus{$mopenvz->{mem_status}} ($mopenvz->{curmem}%), " .
                                        "disk $rstatus{$mopenvz->{disk_status}} ($mopenvz->{curdisk}%) " .
