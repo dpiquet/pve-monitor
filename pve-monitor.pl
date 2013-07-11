@@ -622,6 +622,7 @@ foreach my $item( @$objects ) {
                   if $arguments{debug};
 
                 if (defined $item->{status}) {
+                    $mopenvz->{status}  = $status{OK};
                     $mopenvz->{alive}   = $item->{status};
                     $mopenvz->{uptime}  = $item->{uptime};
                     $mopenvz->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
@@ -647,6 +648,7 @@ foreach my $item( @$objects ) {
                   if $arguments{debug};
 
                 if(defined $item->{status}) {
+                    $mqemu->{status}  = $status{OK};
                     $mqemu->{alive}   = $item->{status};
                     $mqemu->{uptime}  = $item->{uptime};
                     $mqemu->{node}    = $item->{node};
