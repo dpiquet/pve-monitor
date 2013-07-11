@@ -39,6 +39,7 @@ my $configurationFile = './pve-monitor.conf';
 my $pluginVersion = '0.9';
 
 my %status = (
+    'UNDEF'    => -1,
     'OK'       => 0,
     'WARNING'  => 1,
     'CRITICAL' => 2,
@@ -251,7 +252,7 @@ while ( <FILE> ) {
                                  curmem       => undef,
                                  curdisk      => undef,
                                  curcpu       => undef,
-                                 status       => $status{UNKNOWN},
+                                 status       => $status{UNDEF},
                                  uptime       => undef,
                              },
                          );
@@ -320,7 +321,7 @@ while ( <FILE> ) {
                                  crit_disk    => $critDisk,
                                  curdisk      => undef,
                                  disk_status  => $status{OK},
-                                 status       => $status{UNKNOWN},
+                                 status       => $status{UNDEF},
                              },
                          );
                          $readingObject = 0;
@@ -407,7 +408,7 @@ while ( <FILE> ) {
                                  cpu_status   => $status{OK},
                                  mem_status   => $status{OK},
                                  disk_status  => $status{OK},
-                                 status       => $status{UNKNOWN},
+                                 status       => $status{UNDEF},
                                  uptime       => undef,
                                  node         => undef,
                              },
@@ -644,7 +645,9 @@ foreach my $item( @$objects ) {
             foreach my $mqemu( @monitoredQemus ) {
                 next unless ($item->{name} eq $mqemu->{name});
 
-                print "Found $mqemu->{name} in resource list\n"
+                print "Found $mqemu->{name} in resource list\n" .
+                      "   status: $item->{status}\n" .
+                      "   uptime: $item->{maxdisk}"
                   if $arguments{debug};
 
                 if(defined $item->{status}) {
@@ -751,7 +754,7 @@ if (defined $arguments{nodes}) {
     my $reportSummary = '';
 
     foreach my $mopenvz( @monitoredOpenvz ) {
-        if ($mopenvz->{status} ne $status{UNKNOWN}) {
+        if ($mopenvz->{status} ne $status{UNDEF}) {
 
             if (defined $mopenvz->{warn_mem}) {
                 $mopenvz->{mem_status} = $status{WARNING}
@@ -764,7 +767,7 @@ if (defined $arguments{nodes}) {
             }
 
             if (defined $mopenvz->{warn_disk}) {
-                $$mopenvz->{disk_status} = $status{WARNING}
+                $mopenvz->{disk_status} = $status{WARNING}
                   if $mopenvz->{curdisk} > $mopenvz->{warn_disk};
             }
 
@@ -876,7 +879,7 @@ if (defined $arguments{nodes}) {
     my $reportSummary = '';
 
     foreach my $mqemu( @monitoredQemus ) {
-        if ($mqemu->{status} ne $status{UNKNOWN}) {
+        if ($mqemu->{status} ne $status{UNDEF}) {
             if (defined $mqemu->{warn_mem}) {
                 $mqemu->{mem_status} = $status{WARNING}
                   if $mqemu->{curmem} > $mqemu->{warn_mem};
@@ -918,6 +921,8 @@ if (defined $arguments{nodes}) {
                                   "uptime $mqemu->{uptime}\n";
             }
             else {
+                $mqemu->{status} = $status{CRITICAL};
+
                 $reportSummary .= "QEMU $mqemu->{name} $rstatus{$mqemu->{status}} : VM is $mqemu->{alive}\n";
                 $statusScore += $status{CRITICAL};
                 $mqemu->{status} = $status{CRITICAL};
