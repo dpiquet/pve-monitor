@@ -582,9 +582,15 @@ foreach my $item( @$objects ) {
                 if(defined $item->{uptime}) {
                     $mnode->{status}  = $status{OK};
                     $mnode->{uptime}  = $item->{uptime};
-                    $mnode->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
-                    $mnode->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
-                    $mnode->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
+
+                    $mnode->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100)
+                      if ($item->{maxmem} > 0);
+
+                    $mnode->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100)
+                      if ($item->{maxdisk} > 0);
+
+                    $mnode->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100)
+                      if ($item->{maxcpu} > 0);
                 }
                 else {
                     $mnode->{status} = -1;
@@ -605,7 +611,9 @@ foreach my $item( @$objects ) {
 
                 if (defined $item->{disk} ) {
                     $mstorage->{status} = $status{OK};
-                    $mstorage->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
+
+                    $mstorage->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100)
+                      if ($item->{maxdisk} > 0);
                 }
                 else {
                     $mstorage->{status} = -1;
@@ -626,10 +634,16 @@ foreach my $item( @$objects ) {
                     $mopenvz->{status}  = $status{OK};
                     $mopenvz->{alive}   = $item->{status};
                     $mopenvz->{uptime}  = $item->{uptime};
-                    $mopenvz->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
-                    $mopenvz->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
-                    $mopenvz->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
                     $mopenvz->{node}    = $item->{node};
+
+                    $mopenvz->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100)
+                      if($item->{maxmem} > 0);
+
+                    $mopenvz->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100)
+                      if ($item->{maxdisk} > 0);
+
+                    $mopenvz->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100)
+                      if ($item->{maxcpu} > 0);
                 }
                 else {
                     $mopenvz->{alive}   = "on dead node";
@@ -653,9 +667,15 @@ foreach my $item( @$objects ) {
                     $mqemu->{alive}   = $item->{status};
                     $mqemu->{uptime}  = $item->{uptime};
                     $mqemu->{node}    = $item->{node};
-                    $mqemu->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100);
-                    $mqemu->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100);
-                    $mqemu->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100);
+
+                    $mqemu->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100)
+                      if ($item->{maxmem} > 0);
+
+                    $mqemu->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100)
+                      if ($item->{maxdisk});
+
+                    $mqemu->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100)
+                      if ($item->{maxcpu} > 0);
                 }
                 else {
                     $mqemu->{alive}   = "on dead node";
