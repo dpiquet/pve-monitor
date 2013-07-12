@@ -497,7 +497,7 @@ while ( <FILE> ) {
                                  cpu_status   => $status{OK},
                                  mem_status   => $status{OK},
                                  disk_status  => $status{OK},
-                                 status       => $status{UNKNOWN},
+                                 status       => $status{UNDEF},
                                  uptime       => undef,
                                  node         => undef,
                              },
@@ -645,9 +645,7 @@ foreach my $item( @$objects ) {
             foreach my $mqemu( @monitoredQemus ) {
                 next unless ($item->{name} eq $mqemu->{name});
 
-                print "Found $mqemu->{name} in resource list\n" .
-                      "   status: $item->{status}\n" .
-                      "   uptime: $item->{maxdisk}"
+                print "Found $mqemu->{name} in resource list\n"
                   if $arguments{debug};
 
                 if(defined $item->{status}) {
