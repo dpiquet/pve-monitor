@@ -140,7 +140,7 @@ while ( <FILE> ) {
     next if $line =~ m/^#/i;
 
     # we got an object definition here !
-    if ( $line =~ m/([\w\/]+)\s+([\w\.\-]+)\s+\{/i ) {
+    if ( $line =~ m/([\S]+)\s+([\S]+)\s+\{/i ) {
          switch ($1) {
              case "node" {
                  my $name     = $2;
@@ -162,7 +162,7 @@ while ( <FILE> ) {
                      my $objLine = $_;
 
                      next if ( $objLine =~ m/^(\s+)?#/ );
-                     if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)(\s+([\w\.]+))?/i ) {
+                     if ( $objLine =~ m/([\S]+)\s+([\S]+)(\s+([\S]+))?/i ) {
 
                          switch ($1) {
                              case "cpu" {
@@ -278,7 +278,7 @@ while ( <FILE> ) {
                      my $objLine = $_;
 
                      next if ( $objLine =~ m/^#/i );
-                     if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)(\s+([\w\.]+))?/i ) {
+                     if ( $objLine =~ m/([\S]+)\s+([\S]+)(\s+([\S]+))?/i ) {
                          switch ($1) {
                              case "disk" {
                                  if ((is_number $2)and(is_number $4)) {
@@ -345,7 +345,7 @@ while ( <FILE> ) {
                      my $objLine = $_;
 
                      next if ( $objLine =~ m/^#/i );
-                     if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)\s+([\w\.]+)/i ) {
+                     if ( $objLine =~ m/([\S]+)\s+([\S]+)\s+([\S]+)/i ) {
                          switch ($1) {
                              case "cpu" {
                                  if ((is_number $2) and (is_number $3)) {
@@ -433,7 +433,7 @@ while ( <FILE> ) {
                      my $objLine = $_;
 
                      next if ( $objLine =~ m/^#/i );
-                     if ( $objLine =~ m/([\w\.]+)\s+([\w\.]+)\s+([\w\.]+)/i ) {
+                     if ( $objLine =~ m/([\S]+)\s+([\S]+)\s+([\S]+)/i ) {
                          switch ($1) {
                              case "cpu" {
                                  if ((is_number $2)and(is_number $3)) {
