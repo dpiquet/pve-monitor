@@ -749,7 +749,7 @@ if (defined $arguments{nodes}) {
     foreach my $mnode( @monitoredNodes ) {
         $statusScore += $mnode->{status};
         
-        if ($mnode->{status} ne $status{UNKNOWN}) {
+        if ($mnode->{status} ne $status{UNDEF}) {
             # compute max memory usage
             my $mem_hi_limit = 0;
             $mem_hi_limit = sprintf("%.2f", $mnode->{mem_alloc} / $mnode->{maxmem} * 100)
@@ -800,8 +800,8 @@ if (defined $arguments{nodes}) {
                                   "cpu $rstatus{$mnode->{cpu_status}} ($mnode->{curcpu}%), " . 
                                   "mem $rstatus{$mnode->{mem_status}} ($mnode->{curmem}%), " . 
                                   "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
-                                  "uptime $mnode->{uptime} " .
-                                  "mem alloc $rstatus{$mnode->{mem_alloc_status}} ($mem_hi_limit%)\n";
+                                  "mem alloc $rstatus{$mnode->{mem_alloc_status}} ($mem_hi_limit%), " .
+                                  "uptime $mnode->{uptime}\n";
 
                 $workingNodes++
                   if $mnode->{status} eq $status{OK};
