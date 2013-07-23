@@ -36,7 +36,7 @@ use Getopt::Long;
 use Switch;
 
 my $configurationFile = './pve-monitor.conf';
-my $pluginVersion = '0.9';
+my $pluginVersion = '1.0';
 
 my %status = (
     'UNDEF'    => -1,
@@ -143,18 +143,20 @@ while ( <FILE> ) {
     if ( $line =~ m/([\S]+)\s+([\S]+)\s+\{/i ) {
          switch ($1) {
              case "node" {
-                 my $name     = $2;
-                 my $warnCpu  = undef;
-                 my $warnMem  = undef;
-                 my $warnDisk = undef;
-                 my $critCpu  = undef;
-                 my $critMem  = undef;
-                 my $critDisk = undef;
-                 my $nAddr    = undef;
-                 my $nPort    = 8006;
-                 my $nUser    = undef;
-                 my $nPwd     = undef;
-                 my $nRealm   = 'pam';
+                 my $name            = $2;
+                 my $warnCpu         = undef;
+                 my $warnMem         = undef;
+                 my $warnDisk        = undef;
+                 my $critCpu         = undef;
+                 my $critMem         = undef;
+                 my $critDisk        = undef;
+                 my $nAddr           = undef;
+                 my $nPort           = 8006;
+                 my $nUser           = undef;
+                 my $nPwd            = undef;
+                 my $nRealm          = 'pam';
+                 my $warnMaxMemAlloc = undef;
+                 my $critMaxMemAlloc = undef;
 
                  $readingObject = 1;
 
@@ -195,6 +197,10 @@ while ( <FILE> ) {
                                      exit $status{UNKNOWN};
                                  }
                              }
+                             case "mem_alloc" {
+                                 $warnMaxMemAlloc = $2;
+                                 $critMaxMemAlloc = $4;
+                             }
                              case "address" {
                                  $nAddr = $2;
                              }
@@ -233,27 +239,32 @@ while ( <FILE> ) {
                            if $arguments{debug};
 
                          $monitoredNodes[scalar(@monitoredNodes)] = ({
-                                 name         => $name,
-                                 address      => $nAddr,
-                                 port         => $nPort,
-                                 username     => $nUser,
-                                 realm        => $nRealm,
-                                 password     => $nPwd,
-                                 warn_cpu     => $warnCpu,
-                                 warn_mem     => $warnMem,
-                                 warn_disk    => $warnDisk,
-                                 crit_cpu     => $critCpu,
-                                 crit_mem     => $critMem,
-                                 crit_disk    => $critDisk,
-                                 cpu_status   => $status{OK},
-                                 mem_status   => $status{OK},
-                                 disk_status  => $status{OK},
-                                 alive        => 0,
-                                 curmem       => undef,
-                                 curdisk      => undef,
-                                 curcpu       => undef,
-                                 status       => $status{UNDEF},
-                                 uptime       => undef,
+                                 name             => $name,
+                                 address          => $nAddr,
+                                 port             => $nPort,
+                                 username         => $nUser,
+                                 realm            => $nRealm,
+                                 password         => $nPwd,
+                                 warn_cpu         => $warnCpu,
+                                 warn_mem         => $warnMem,
+                                 warn_mem_alloc   => $warnMaxMemAlloc,
+                                 warn_disk        => $warnDisk,
+                                 crit_cpu         => $critCpu,
+                                 crit_mem         => $critMem,
+                                 crit_mem_alloc   => $critMaxMemAlloc,
+                                 crit_disk        => $critDisk,
+                                 cpu_status       => $status{OK},
+                                 mem_status       => $status{OK},
+                                 disk_status      => $status{OK},
+                                 mem_alloc_status => $status{OK},
+                                 alive            => 0,
+                                 curmem           => undef,
+                                 curdisk          => undef,
+                                 curcpu           => undef,
+                                 status           => $status{UNDEF},
+                                 uptime           => undef,
+                                 mem_alloc        => 0,
+                                 max_mem          => undef,
                              },
                          );
                          
@@ -307,7 +318,8 @@ while ( <FILE> ) {
                          }
 
                          if (! defined $node ) {
-                             print "Invalid configuration, missing node in $name storage definition !\n";
+                             print "Invalid configuration, " . 
+                                   "missing node in $name storage definition !\n";
                              exit $status{UNKNOWN};
                          }
 
@@ -582,7 +594,8 @@ foreach my $item( @$objects ) {
                 if(defined $item->{uptime}) {
                     $mnode->{status}  = $status{OK};
                     $mnode->{uptime}  = $item->{uptime};
-
+                    $mnode->{maxmem}  = $item->{maxmem};
+ 
                     $mnode->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100)
                       if ($item->{maxmem} > 0);
 
@@ -593,12 +606,14 @@ foreach my $item( @$objects ) {
                       if ($item->{maxcpu} > 0);
                 }
                 else {
-                    $mnode->{status} = -1;
-                    $mnode->{uptime} = 0;
-                    $mnode->{curmem} = 0;
+                    $mnode->{status}  = -1;
+                    $mnode->{uptime}  = 0;
+                    $mnode->{curmem}  = 0;
                     $mnode->{curdisk} = 0;
-                    $mnode->{curcpu} = 0;
+                    $mnode->{curcpu}  = 0;
                 }
+
+                last;
             }
         }
         case "storage" {
@@ -616,14 +631,28 @@ foreach my $item( @$objects ) {
                       if ($item->{maxdisk} > 0);
                 }
                 else {
-                    $mstorage->{status} = -1;
+                    $mstorage->{status}  = -1;
                     $mstorage->{curdisk} = 0;
                 }
+
+                last;
             }
 
             next;
         }
         case "openvz" {
+            #loop monitored nodes to increase mem_hi_limit
+            foreach my $mnode( @monitoredNodes ) {
+                next unless $mnode->{name} eq $item->{node};
+
+                if (defined $item->{status}) {
+                    $mnode->{mem_alloc} += $item->{maxmem}
+                      if ($item->{status} eq "running");
+                }
+
+                last;
+            }
+
             foreach my $mopenvz( @monitoredOpenvz ) {
                 next unless ($item->{name} eq $mopenvz->{name});
 
@@ -636,14 +665,17 @@ foreach my $item( @$objects ) {
                     $mopenvz->{uptime}  = $item->{uptime};
                     $mopenvz->{node}    = $item->{node};
 
+                    
                     $mopenvz->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100)
-                      if($item->{maxmem} > 0);
+                      if ($item->{maxmem} > 0);
+                    
 
                     $mopenvz->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100)
                       if ($item->{maxdisk} > 0);
 
                     $mopenvz->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100)
                       if ($item->{maxcpu} > 0);
+
                 }
                 else {
                     $mopenvz->{alive}   = "on dead node";
@@ -652,10 +684,24 @@ foreach my $item( @$objects ) {
                     $mopenvz->{curdisk} = 0;
                     $mopenvz->{curcpu}  = 0;
                 }
+
+                last;
             }
             next;
         }
         case "qemu" {
+            #loop monitored nodes to increase mem_hi_limit
+            foreach my $mnode( @monitoredNodes ) {
+                next unless $mnode->{name} eq $item->{node};
+
+                if (defined $item->{status}) {
+                    $mnode->{mem_alloc} += $item->{maxmem}
+                      if ($item->{status} eq "running");
+                }
+
+                last;
+            } 
+
             foreach my $mqemu( @monitoredQemus ) {
                 next unless ($item->{name} eq $mqemu->{name});
 
@@ -684,6 +730,8 @@ foreach my $item( @$objects ) {
                     $mqemu->{curdisk} = 0;
                     $mqemu->{curcpu}  = 0;
                 }
+
+                last;
             }
 
             next;
@@ -702,6 +750,21 @@ if (defined $arguments{nodes}) {
         $statusScore += $mnode->{status};
         
         if ($mnode->{status} ne $status{UNKNOWN}) {
+            # compute max memory usage
+            my $mem_hi_limit = 0;
+            $mem_hi_limit = sprintf("%.2f", $mnode->{mem_alloc} / $mnode->{maxmem} * 100)
+              if ($mnode->{maxmem} > 0);
+
+            if (defined $mnode->{warn_mem_alloc}) {
+                $mnode->{mem_alloc_status} = $status{WARNING}
+                  if ($mem_hi_limit > $mnode->{warn_mem_alloc});
+            }
+
+            if (defined $mnode->{crit_mem_alloc}) {
+                $mnode->{mem_alloc_status} = $status{CRITICAL}
+                  if ($mem_hi_limit > $mnode->{crit_mem_alloc});
+            }
+
             if (defined $mnode->{warn_mem}) {
                 $mnode->{mem_status} = $status{WARNING}
                   if ($mnode->{curmem} > $mnode->{warn_mem});
@@ -732,12 +795,13 @@ if (defined $arguments{nodes}) {
                   if ($mnode->{curcpu} > $mnode->{crit_cpu});
             }
 
-            if ($mnode->{status} ne -1) {
+            if ($mnode->{status} ne $status{UNDEF}) {
                 $reportSummary .= "NODE $mnode->{name} $rstatus{$mnode->{status}} : " .
                                   "cpu $rstatus{$mnode->{cpu_status}} ($mnode->{curcpu}%), " . 
                                   "mem $rstatus{$mnode->{mem_status}} ($mnode->{curmem}%), " . 
                                   "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
-                                  "uptime $mnode->{uptime}\n";
+                                  "uptime $mnode->{uptime} " .
+                                  "mem alloc $rstatus{$mnode->{mem_alloc_status}} ($mem_hi_limit%)\n";
 
                 $workingNodes++
                   if $mnode->{status} eq $status{OK};
@@ -747,7 +811,10 @@ if (defined $arguments{nodes}) {
                                   "node is out of cluster (dead?)\n";
             }
 
-            $statusScore += $mnode->{cpu_status} + $mnode->{mem_status} + $mnode->{disk_status};
+            $statusScore += $mnode->{cpu_status} +
+                            $mnode->{mem_status} +
+                            $mnode->{disk_status} +
+                            $mnode->{mem_alloc_status};
 
             # Do not leave $statusScore at level unknown here
             $statusScore++ if $statusScore eq $status{UNKNOWN};
