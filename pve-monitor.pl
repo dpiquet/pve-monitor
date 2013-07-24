@@ -655,19 +655,25 @@ foreach my $item( @$objects ) {
 
                 # if a node is down, many values are not set
                 if(defined $item->{uptime}) {
-                    $mnode->{status}  = $status{OK};
-                    $mnode->{uptime}  = $item->{uptime};
-                    $mnode->{maxmem}  = $item->{maxmem};
-                    $mnode->{maxcpu}  = $item->{maxcpu};
- 
-                    $mnode->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100)
-                      if ($item->{maxmem} > 0);
+                    $mnode->{status} = $status{OK};
+                    $mnode->{uptime} = $item->{uptime};
+                    $mnode->{maxmem} = $item->{maxmem};
+                    $mnode->{maxcpu} = $item->{maxcpu};
 
-                    $mnode->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100)
-                      if ($item->{maxdisk} > 0);
+                    if ($item->{maxmem} > 0) {
+                        my $curMem = $item->{mem} / $item->{maxmem} * 100;
+                        $mnode->{curmem}  = sprintf("%.2f", $curMem);
+                    }
 
-                    $mnode->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100)
-                      if ($item->{maxcpu} > 0);
+                    if ($item->{maxdisk} > 0) {
+                        my $curDisk = $item->{disk} / $item->{maxdisk} * 100;
+                        $mnode->{curdisk} = sprintf("%.2f", $curDisk);
+                    }
+
+                    if ($item->{maxcpu} > 0) {
+                        my $curCpu = $item->{cpu} / $item->{maxcpu} * 100;
+                        $mnode->{curcpu}  = sprintf("%.2f", $curCpu);
+                    }
                 }
                 else {
                     $mnode->{status}  = -1;
@@ -691,8 +697,10 @@ foreach my $item( @$objects ) {
                 if (defined $item->{disk} ) {
                     $mstorage->{status} = $status{OK};
 
-                    $mstorage->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100)
-                      if ($item->{maxdisk} > 0);
+                    if ($item->{maxdisk} > 0) {
+                        my $curDisk = $item->{disk} / $item->{maxdisk} * 100;
+                        $mstorage->{curdisk} = sprintf("%.2f", $curDisk);
+                    }
                 }
                 else {
                     $mstorage->{status}  = -1;
@@ -731,17 +739,20 @@ foreach my $item( @$objects ) {
                     $mopenvz->{uptime}  = $item->{uptime};
                     $mopenvz->{node}    = $item->{node};
 
-                    
-                    $mopenvz->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100)
-                      if ($item->{maxmem} > 0);
-                    
+                    if ($item->{maxmem} > 0) {
+                        my $curMem = $item->{mem} / $item->{maxmem} * 100;
+                        $mopenvz->{curmem} = sprintf("%.2f", $curMem);
+                    }
 
-                    $mopenvz->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100)
-                      if ($item->{maxdisk} > 0);
+                    if ($item->{maxdisk} > 0) {
+                        my $curDisk = $item->{disk} / $item->{maxdisk} * 100;
+                        $mopenvz->{curdisk} = sprintf("%.2f", $curDisk);
+                    }
 
-                    $mopenvz->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100)
-                      if ($item->{maxcpu} > 0);
-
+                    if ($item->{maxcpu} > 0) {
+                        my $curCpu = $item->{cpu} / $item->{maxcpu} * 100;
+                        $mopenvz->{curcpu} = sprintf("%.2f", $curCpu);
+                    }
                 }
                 else {
                     $mopenvz->{alive}   = "on dead node";
@@ -782,14 +793,20 @@ foreach my $item( @$objects ) {
                     $mqemu->{uptime}  = $item->{uptime};
                     $mqemu->{node}    = $item->{node};
 
-                    $mqemu->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100)
-                      if ($item->{maxmem} > 0);
+                    if ($item->{maxmem} > 0) {
+                        my $maxMem = $item->{mem} / $item->{maxmem} * 100;
+                        $mqemu->{curmem}  = sprintf("%.2f", $maxMem);
+                    }
 
-                    $mqemu->{curdisk} = sprintf("%.2f", $item->{disk} / $item->{maxdisk} * 100)
-                      if ($item->{maxdisk});
+                    if ($item->{maxdisk}) {
+                        my $curDisk = $item->{disk} / $item->{maxdisk} * 100;
+                        $mqemu->{curdisk} = sprintf("%.2f", $curDisk);
+                    }
 
-                    $mqemu->{curcpu}  = sprintf("%.2f", $item->{cpu} / $item->{maxcpu} * 100)
-                      if ($item->{maxcpu} > 0);
+                    if ($item->{maxcpu} > 0) {
+                        my $curCpu = $item->{cpu} / $item->{maxcpu} * 100;
+                        $mqemu->{curcpu}  = sprintf("%.2f", $curCpu);
+                    }
                 }
                 else {
                     $mqemu->{alive}   = "on dead node";
@@ -877,8 +894,18 @@ if (defined $arguments{nodes}) {
                   if ($mnode->{curcpu} > $mnode->{crit_cpu});
             }
 
+            my $curNodeStatus = $mnode->{cpu_status} +
+                                $mnode->{mem_status} +
+                                $mnode->{disk_status} +
+                                $mnode->{cpu_alloc_status} +
+                                $mnode->{mem_alloc_status};
+
+            $curNodeStatus = $status{CRITICAL}
+              if ($curNodeStatus >= $status{UNKNOWN});
+
             if ($mnode->{status} ne $status{UNDEF}) {
-                $reportSummary .= "NODE $mnode->{name} $rstatus{$mnode->{status}} : " .
+                $reportSummary .= 
+                    "NODE $mnode->{name} $rstatus{$curNodeStatus} : " .
                     "cpu $rstatus{$mnode->{cpu_status}} ($mnode->{curcpu}%), " . 
                     "mem $rstatus{$mnode->{mem_status}} ($mnode->{curmem}%), " . 
                     "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
@@ -894,11 +921,7 @@ if (defined $arguments{nodes}) {
                                   "node is out of cluster (dead?)\n";
             }
 
-            $statusScore += $mnode->{cpu_status} +
-                            $mnode->{mem_status} +
-                            $mnode->{disk_status} +
-                            $mnode->{mem_alloc_status} +
-                            $mnode->{cpu_alloc_status};
+            $statusScore += $curNodeStatus;
 
             # Do not leave $statusScore at level unknown here
             $statusScore++ if $statusScore eq $status{UNKNOWN};
@@ -960,22 +983,28 @@ if (defined $arguments{nodes}) {
                      $mopenvz->{status} = $status{OK};
                      $workingVms++;
 
-                     $reportSummary .= "OPENVZ $mopenvz->{name} ($mopenvz->{node}) $rstatus{$mopenvz->{status}} : " .
-                                       "cpu $rstatus{$mopenvz->{cpu_status}} ($mopenvz->{curcpu}%), " .
-                                       "mem $rstatus{$mopenvz->{mem_status}} ($mopenvz->{curmem}%), " .
-                                       "disk $rstatus{$mopenvz->{disk_status}} ($mopenvz->{curdisk}%) " .
-                                       "uptime $mopenvz->{uptime}\n";
+                     $reportSummary .=
+                         "OPENVZ $mopenvz->{name} ($mopenvz->{node}) " .
+                         "$rstatus{$mopenvz->{status}} : " .
+                         "cpu $rstatus{$mopenvz->{cpu_status}} ($mopenvz->{curcpu}%), " .
+                         "mem $rstatus{$mopenvz->{mem_status}} ($mopenvz->{curmem}%), " .
+                         "disk $rstatus{$mopenvz->{disk_status}} ($mopenvz->{curdisk}%) " .
+                         "uptime $mopenvz->{uptime}\n";
                 }
                 else {
                     $mopenvz->{status} = $status{CRITICAL};
                     $statusScore += $status{CRITICAL};
 
-                    $reportSummary .= "OPENVZ $mopenvz->{name} $rstatus{$mopenvz->{status}} : VM is $mopenvz->{alive}\n";
+                    $reportSummary .= "OPENVZ $mopenvz->{name} " .
+                        "$rstatus{$mopenvz->{status}} : " .
+                        "VM is $mopenvz->{alive}\n";
                 }
             }
 
 
-            $statusScore += $mopenvz->{cpu_status} + $mopenvz->{mem_status} + $mopenvz->{disk_status};
+            $statusScore += $mopenvz->{cpu_status} +
+                            $mopenvz->{mem_status} +
+                            $mopenvz->{disk_status};
 
             $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
@@ -1005,7 +1034,8 @@ if (defined $arguments{nodes}) {
         if ($mstorage->{status} eq -1) {
             $statusScore += $status{CRITICAL};
 
-            $reportSummary .= "$mstorage->{name} ($mstorage->{node}) $rstatus{$status{CRITICAL}}: " .
+            $reportSummary .= "$mstorage->{name} ($mstorage->{node}) " .
+                              "$rstatus{$status{CRITICAL}}: " .
                               "storage is on a dead node\n";
         }
         elsif ($mstorage->{status} ne $status{UNKNOWN}) {
@@ -1019,7 +1049,8 @@ if (defined $arguments{nodes}) {
                   if $mstorage->{curdisk} > $mstorage->{crit_disk};
             }
 
-            $reportSummary .= "STORAGE $mstorage->{name} ($mstorage->{node}) $rstatus{$mstorage->{status}} : " .
+            $reportSummary .= "STORAGE $mstorage->{name} ($mstorage->{node}) " .
+                              "$rstatus{$mstorage->{status}} : " .
                               "disk $mstorage->{curdisk}%\n";
 
             $workingStorages++;
@@ -1083,22 +1114,25 @@ if (defined $arguments{nodes}) {
                 $mqemu->{status} = $status{OK};
                 $workingVms++;
 
-                $reportSummary .= "QEMU $mqemu->{name} ($mqemu->{node}) $rstatus{$mqemu->{status}} : " .
-                                  "cpu $rstatus{$mqemu->{cpu_status}} ($mqemu->{curcpu}%), " .
-                                  "mem $rstatus{$mqemu->{mem_status}} ($mqemu->{curmem}%), " .
-                                  "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%) " .
-                                  "uptime $mqemu->{uptime}\n";
+                $reportSummary .=
+                    "QEMU $mqemu->{name} ($mqemu->{node}) $rstatus{$mqemu->{status}} : " .
+                    "cpu $rstatus{$mqemu->{cpu_status}} ($mqemu->{curcpu}%), " .
+                    "mem $rstatus{$mqemu->{mem_status}} ($mqemu->{curmem}%), " .
+                    "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%) " .
+                    "uptime $mqemu->{uptime}\n";
             }
             else {
                 $mqemu->{status} = $status{CRITICAL};
 
-                $reportSummary .= "QEMU $mqemu->{name} $rstatus{$mqemu->{status}} : VM is $mqemu->{alive}\n";
+                $reportSummary .= "QEMU $mqemu->{name} $rstatus{$mqemu->{status}} : " .
+                                  "VM is $mqemu->{alive}\n";
                 $statusScore += $status{CRITICAL};
                 $mqemu->{status} = $status{CRITICAL};
             }
 
-            $statusScore += $mqemu->{cpu_status} + $mqemu->{mem_status} + $mqemu->{disk_status};
-
+            $statusScore += $mqemu->{cpu_status} + 
+                            $mqemu->{mem_status} +
+                            $mqemu->{disk_status};
 
             $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
