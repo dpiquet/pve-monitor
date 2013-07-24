@@ -143,20 +143,22 @@ while ( <FILE> ) {
     if ( $line =~ m/([\S]+)\s+([\S]+)\s+\{/i ) {
          switch ($1) {
              case "node" {
-                 my $name            = $2;
-                 my $warnCpu         = undef;
-                 my $warnMem         = undef;
-                 my $warnDisk        = undef;
-                 my $critCpu         = undef;
-                 my $critMem         = undef;
-                 my $critDisk        = undef;
-                 my $nAddr           = undef;
-                 my $nPort           = 8006;
-                 my $nUser           = undef;
-                 my $nPwd            = undef;
-                 my $nRealm          = 'pam';
-                 my $warnMaxMemAlloc = undef;
-                 my $critMaxMemAlloc = undef;
+                 my $name         = $2;
+                 my $warnCpu      = undef;
+                 my $warnMem      = undef;
+                 my $warnDisk     = undef;
+                 my $critCpu      = undef;
+                 my $critMem      = undef;
+                 my $critDisk     = undef;
+                 my $nAddr        = undef;
+                 my $nPort        = 8006;
+                 my $nUser        = undef;
+                 my $nPwd         = undef;
+                 my $nRealm       = 'pam';
+                 my $warnMemAlloc = undef;
+                 my $critMemAlloc = undef;
+                 my $warnCpuAlloc = undef;
+                 my $critCpuAlloc = undef;
 
                  $readingObject = 1;
 
@@ -173,7 +175,21 @@ while ( <FILE> ) {
                                      $critCpu = $4;
                                  }
                                  else {
-                                     print "Invalid CPU declaration in $name definition\n";
+                                     close(FILE);
+                                     print "Invalid CPU declaration " .
+                                           "in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
+                             }
+                             case "cpu_alloc" {
+                                 if((is_number $2)and(is_number $4)) {
+                                     $warnCpuAlloc = $2;
+                                     $critCpuAlloc = $4;
+                                 }
+                                 else {
+                                     close(FILE);
+                                     print "Invalid CPU_ALLOC declaration " .
+                                           "in $name definition\n";
                                      exit $status{UNKNOWN};
                                  }
                              }
@@ -183,7 +199,9 @@ while ( <FILE> ) {
                                      $critMem = $4;
                                  }
                                  else {
-                                     print "Invalid MEM declaration in $name definition\n";
+                                     close(FILE);
+                                     print "Invalid MEM declaration " .
+                                           "in $name definition\n";
                                      exit $status{UNKNOWN};
                                  }
                              }
@@ -193,13 +211,23 @@ while ( <FILE> ) {
                                      $critDisk = $4;
                                  }
                                  else {
-                                     print "Invalid DISK declaration in $name definition\n";
+                                     close(FILE);
+                                     print "Invalid DISK declaration " .
+                                           "in $name definition\n";
                                      exit $status{UNKNOWN};
                                  }
                              }
                              case "mem_alloc" {
-                                 $warnMaxMemAlloc = $2;
-                                 $critMaxMemAlloc = $4;
+                                 if ((is_number $2)and(is_number $4)) {
+                                     $warnMemAlloc = $2;
+                                     $critMemAlloc = $4;
+                                 }
+                                 else {
+                                     close(FILE);
+                                     print "Invalid MEM_ALLOC declaration " .
+                                           "in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
                              }
                              case "address" {
                                  $nAddr = $2;
@@ -209,7 +237,9 @@ while ( <FILE> ) {
                                      $nPort = $2;
                                  }
                                  else {
-                                     print "Invalid PORT declaration in $name definition\n";
+                                     close(FILE);
+                                     print "Invalid PORT declaration " .
+                                           "in $name definition\n";
                                      exit $status{UNKNOWN};
                                  }
                              }
@@ -223,6 +253,7 @@ while ( <FILE> ) {
                                  $nRealm = $2;
                              }
                              else {
+                                 close(FILE);
                                  print "Invalid token $1 in $name definition !\n";
                                  exit $status{UNKNOWN};
                              }
@@ -231,6 +262,7 @@ while ( <FILE> ) {
                      elsif ( $objLine =~ m/\}/i ) {
                          # check object requirements are met, save it, break
                          if (! defined $name ) {
+                             close(FILE);
                              print "Invalid configuration !";
                              exit $status{UNKNOWN};
                          }
@@ -246,17 +278,20 @@ while ( <FILE> ) {
                                  realm            => $nRealm,
                                  password         => $nPwd,
                                  warn_cpu         => $warnCpu,
+                                 warn_cpu_alloc   => $warnCpuAlloc,
                                  warn_mem         => $warnMem,
-                                 warn_mem_alloc   => $warnMaxMemAlloc,
+                                 warn_mem_alloc   => $warnMemAlloc,
                                  warn_disk        => $warnDisk,
                                  crit_cpu         => $critCpu,
+                                 crit_cpu_alloc   => $critCpuAlloc,
                                  crit_mem         => $critMem,
-                                 crit_mem_alloc   => $critMaxMemAlloc,
+                                 crit_mem_alloc   => $critMemAlloc,
                                  crit_disk        => $critDisk,
                                  cpu_status       => $status{OK},
                                  mem_status       => $status{OK},
                                  disk_status      => $status{OK},
                                  mem_alloc_status => $status{OK},
+                                 cpu_alloc_status => $status{OK},
                                  alive            => 0,
                                  curmem           => undef,
                                  curdisk          => undef,
@@ -264,7 +299,9 @@ while ( <FILE> ) {
                                  status           => $status{UNDEF},
                                  uptime           => undef,
                                  mem_alloc        => 0,
-                                 max_mem          => undef,
+                                 maxmem          => undef,
+                                 cpu_alloc        => undef,
+                                 maxcpu          => undef,
                              },
                          );
                          
@@ -297,7 +334,9 @@ while ( <FILE> ) {
                                      $critDisk = $4;
                                  }
                                  else {
-                                     print "Invalid DISK declaration in $name definition\n";
+                                     close(FILE);
+                                     print "Invalid DISK declaration " .
+                                           "in $name definition\n";
                                      exit $status{UNKNOWN};
                                  }
                              }
@@ -305,7 +344,9 @@ while ( <FILE> ) {
                                  $node = $2;
                              }
                              else {
-                                 print "Invalid token $1 in $name definition !\n";
+                                 close(FILE);
+                                 print "Invalid token $1 " .
+                                       "in $name definition !\n";
                                  exit $status{UNKNOWN};
                              }
                          }
@@ -313,11 +354,13 @@ while ( <FILE> ) {
                      elsif ( $objLine =~ m/\}/i ) {
                          # check object requirements are met, save it, break
                          if (! defined $name ) {
+                             close(FILE);
                              print "Invalid configuration !";
                              exit $status{UNKNOWN};
                          }
 
                          if (! defined $node ) {
+                             close(FILE);
                              print "Invalid configuration, " . 
                                    "missing node in $name storage definition !\n";
                              exit $status{UNKNOWN};
@@ -365,7 +408,9 @@ while ( <FILE> ) {
                                      $critCpu = $3;
                                  }
                                  else {
-                                     print "Invalid CPU declaration in $name definition\n";
+                                     close(FILE);
+                                     print "Invalid CPU declaration " .
+                                           "in $name definition\n";
                                      exit $status{UNKNOWN};
                                  }
                              }
@@ -375,7 +420,9 @@ while ( <FILE> ) {
                                      $critMem = $3;
                                  }
                                  else {
-                                     print "Invalid MEM declaration in $name definition\n";
+                                     close(FILE);
+                                     print "Invalid MEM declaration " .
+                                           "in $name definition\n";
                                      exit $status{UNKNOWN};
                                  }
                              }
@@ -385,12 +432,16 @@ while ( <FILE> ) {
                                      $critDisk = $3;
                                  }
                                  else {
-                                     print "Invalid DISK declaration in $name definition\n";
+                                     close(FILE);
+                                     print "Invalid DISK declaration " .
+                                           "in $name definition\n";
                                      exit $status{UNKNOWN};
                                  }
                              }
                              else {
-                                 print "Invalid token $1 in $name definition !\n";
+                                 close(FILE);
+                                 print "Invalid token $1 " .
+                                       "in $name definition !\n";
                                  exit $status{UNKNOWN};
                              }
                          }
@@ -398,6 +449,7 @@ while ( <FILE> ) {
                      elsif ( $objLine =~ m/\}/i ) {
                          # check object requirements are met, save it, break
                          if (! defined $name ) {
+                             close(FILE);
                              print "Invalid configuration !";
                              exit $status{UNKNOWN};
                          }
@@ -453,7 +505,9 @@ while ( <FILE> ) {
                                      $critCpu = $3;
                                  }
                                  else {
-                                     print "Invalid CPU declaration in $name definition\n";
+                                     close(FILE);
+                                     print "Invalid CPU declaration " .
+                                           "in $name definition\n";
                                      exit $status{UNKNOWN};
                                  }
                              }
@@ -463,22 +517,28 @@ while ( <FILE> ) {
                                      $critMem = $3;
                                  }
                                  else {
-                                     print "Invalid MEM declaration in $name definition\n";
+                                     close(FILE);
+                                     print "Invalid MEM declaration " .
+                                           "in $name definition\n";
                                      exit $status{UNKNOWN};
                                  }
                              }
-                             case "disk" {
-                                 if ((is_number $2)and(is_number $3)) {
+					     case "disk" {
+			 if ((is_number $2)and(is_number $3)) {
                                      $warnDisk = $2;
                                      $critDisk = $3;
                                  }
                                  else {
-                                     print "Invalid DISK declaration in $name definition\n";
+                                     close(FILE);
+                                     print "Invalid DISK declaration " .
+                                           "in $name definition\n";
                                      exit $status{UNKNOWN};
                                  }
                              }
                              else {
-                                 print "Invalid token $1 in $name definition !\n";
+                                 close(FILE);
+                                 print "Invalid token $1 " .
+                                       "in $name definition !\n";
                                  exit $status{UNKNOWN};
                              }
                          }
@@ -486,6 +546,7 @@ while ( <FILE> ) {
                      elsif ( $objLine =~ m/\}/i ) {
                          # check object requirements are met, save it, break
                          if (! defined $name ) {
+                             close(FILE);
                              print "Invalid configuration !\n";
                              exit $status{UNKNOWN};
                          }
@@ -520,7 +581,9 @@ while ( <FILE> ) {
                  }
              }
              else {
-                 print "Invalid token $1 in configuration file $arguments{conf} !\n";
+                 close(FILE);
+                 print "Invalid token $1 " .
+                       "in configuration file $arguments{conf} !\n";
                  exit $status{UNKNOWN};
              }
          }
@@ -538,11 +601,11 @@ if ( $readingObject ) {
 alarm ($arguments{timeout} * scalar(@monitoredNodes) + $arguments{timeout});
 
 for($a = 0; $a < scalar(@monitoredNodes); $a++) {
-    my $host     = $monitoredNodes[$a]->{address} or next;
-    my $port     = $monitoredNodes[$a]->{port} or next;
+    my $host     = $monitoredNodes[$a]->{address}  or next;
+    my $port     = $monitoredNodes[$a]->{port}     or next;
     my $username = $monitoredNodes[$a]->{username} or next;
     my $password = $monitoredNodes[$a]->{password} or next;
-    my $realm    = $monitoredNodes[$a]->{realm} or next;
+    my $realm    = $monitoredNodes[$a]->{realm}    or next;
 
     print "Trying " . $host . "...\n"
       if $arguments{debug};
@@ -580,7 +643,7 @@ print "Found " . scalar(@$objects) . " objects:\n"
   if $arguments{debug};
 
 # loop the objects to compare our definitions with the current state of the cluster
-foreach my $item( @$objects ) { 
+foreach my $item( @$objects ) {
     switch ($item->{type}) {
         case "node" {
             # loop the node array to see if that one is monitored
@@ -595,6 +658,7 @@ foreach my $item( @$objects ) {
                     $mnode->{status}  = $status{OK};
                     $mnode->{uptime}  = $item->{uptime};
                     $mnode->{maxmem}  = $item->{maxmem};
+                    $mnode->{maxcpu}  = $item->{maxcpu};
  
                     $mnode->{curmem}  = sprintf("%.2f", $item->{mem} / $item->{maxmem} * 100)
                       if ($item->{maxmem} > 0);
@@ -646,8 +710,10 @@ foreach my $item( @$objects ) {
                 next unless $mnode->{name} eq $item->{node};
 
                 if (defined $item->{status}) {
-                    $mnode->{mem_alloc} += $item->{maxmem}
-                      if ($item->{status} eq "running");
+                    if ($item->{status} eq "running") {
+                        $mnode->{mem_alloc} += $item->{maxmem};
+                        $mnode->{cpu_alloc} += $item->{maxcpu};
+                    }
                 }
 
                 last;
@@ -695,8 +761,10 @@ foreach my $item( @$objects ) {
                 next unless $mnode->{name} eq $item->{node};
 
                 if (defined $item->{status}) {
-                    $mnode->{mem_alloc} += $item->{maxmem}
-                      if ($item->{status} eq "running");
+                    if ($item->{status} eq "running") {
+                         $mnode->{mem_alloc} += $item->{maxmem};
+                         $mnode->{cpu_alloc} += $item->{maxcpu};
+                    }
                 }
 
                 last;
@@ -751,18 +819,32 @@ if (defined $arguments{nodes}) {
         
         if ($mnode->{status} ne $status{UNDEF}) {
             # compute max memory usage
-            my $mem_hi_limit = 0;
-            $mem_hi_limit = sprintf("%.2f", $mnode->{mem_alloc} / $mnode->{maxmem} * 100)
+            my $memAlloc = 0;
+            $memAlloc = sprintf("%.2f", $mnode->{mem_alloc} / $mnode->{maxmem} * 100)
               if ($mnode->{maxmem} > 0);
+
+            my $cpuAlloc = 0;
+            $cpuAlloc = sprintf("%.2f", $mnode->{cpu_alloc} / $mnode->{maxcpu} * 100)
+              if ($mnode->{maxcpu} > 0);
 
             if (defined $mnode->{warn_mem_alloc}) {
                 $mnode->{mem_alloc_status} = $status{WARNING}
-                  if ($mem_hi_limit > $mnode->{warn_mem_alloc});
+                  if ($memAlloc > $mnode->{warn_mem_alloc});
             }
 
             if (defined $mnode->{crit_mem_alloc}) {
                 $mnode->{mem_alloc_status} = $status{CRITICAL}
-                  if ($mem_hi_limit > $mnode->{crit_mem_alloc});
+                  if ($memAlloc > $mnode->{crit_mem_alloc});
+            }
+
+            if (defined $mnode->{warn_cpu_alloc}) {
+                $mnode->{cpu_alloc_status} = $status{WARNING}
+                  if ($cpuAlloc > $mnode->{warn_cpu_alloc});
+            }
+
+            if (defined $mnode->{crit_cpu_alloc}) {
+                $mnode->{cpu_alloc_status} = $status{CRITICAL}
+                  if ($cpuAlloc > $mnode->{crit_cpu_alloc});
             }
 
             if (defined $mnode->{warn_mem}) {
@@ -797,11 +879,12 @@ if (defined $arguments{nodes}) {
 
             if ($mnode->{status} ne $status{UNDEF}) {
                 $reportSummary .= "NODE $mnode->{name} $rstatus{$mnode->{status}} : " .
-                                  "cpu $rstatus{$mnode->{cpu_status}} ($mnode->{curcpu}%), " . 
-                                  "mem $rstatus{$mnode->{mem_status}} ($mnode->{curmem}%), " . 
-                                  "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
-                                  "mem alloc $rstatus{$mnode->{mem_alloc_status}} ($mem_hi_limit%), " .
-                                  "uptime $mnode->{uptime}\n";
+                    "cpu $rstatus{$mnode->{cpu_status}} ($mnode->{curcpu}%), " . 
+                    "mem $rstatus{$mnode->{mem_status}} ($mnode->{curmem}%), " . 
+                    "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
+                    "cpu alloc $rstatus{$mnode->{cpu_alloc_status}} ($cpuAlloc%), " .
+                    "mem alloc $rstatus{$mnode->{mem_alloc_status}} ($memAlloc%), " .
+                    "uptime $mnode->{uptime}\n";
 
                 $workingNodes++
                   if $mnode->{status} eq $status{OK};
@@ -814,7 +897,8 @@ if (defined $arguments{nodes}) {
             $statusScore += $mnode->{cpu_status} +
                             $mnode->{mem_status} +
                             $mnode->{disk_status} +
-                            $mnode->{mem_alloc_status};
+                            $mnode->{mem_alloc_status} +
+                            $mnode->{cpu_alloc_status};
 
             # Do not leave $statusScore at level unknown here
             $statusScore++ if $statusScore eq $status{UNKNOWN};
