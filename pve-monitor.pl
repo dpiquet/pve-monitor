@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+# nagios: -epn
 
 #####################################################
 #
@@ -28,7 +29,7 @@
 #
 
 use strict;
-use warnings;
+#use warnings;
 
 use Net::Proxmox::VE;
 use Data::Dumper;
@@ -36,7 +37,7 @@ use Getopt::Long;
 use Switch;
 
 my $configurationFile = './pve-monitor.conf';
-my $pluginVersion = '1.0';
+my $pluginVersion = '1.01';
 
 my %status = (
     'UNDEF'    => -1,
@@ -61,7 +62,7 @@ my %arguments = (
 );
 
 sub usage {
-    print "Usage: $0 [--nodes] [--storages] [--qemu] [--openvz] --conf <file>\n";
+    print "Usage: $0 [--nodes] [--storages] [--qemu] [--openvz] [--pools] --conf <file>\n";
     print "\n";
     print "  --nodes\n";
     print "    Check the state of the cluster's members\n";
@@ -71,6 +72,8 @@ sub usage {
     print "    Check the state of the cluster's Qemu virtual machines\n";
     print "  --openvz\n";
     print "    Check the state of the cluster's OpenVZ virtual machines\n";
+    print "  --pools\n";
+    print "    Check the state of the cluster's virtual machines and/or storages in defined pools\n";
 }
 
 sub is_number {
@@ -81,6 +84,7 @@ GetOptions ("nodes"     => \$arguments{nodes},
             "storages"  => \$arguments{storages},
             "openvz"    => \$arguments{openvz},
             "qemu"      => \$arguments{qemu},
+            "pools"     => \$arguments{pools},
             "conf=s"    => \$arguments{conf},
             'version|V' => \$arguments{show_version},
             'help|h'    => \$arguments{show_help},
@@ -116,6 +120,7 @@ my @monitoredStorages;
 my @monitoredNodes;
 my @monitoredOpenvz;
 my @monitoredQemus;
+my @monitoredPools;
 
 my $connected = 0;
 my $host = undef;
@@ -125,6 +130,10 @@ my $realm = undef;
 my $pve;
 
 my $readingObject = 0;
+
+# Output option
+my $br = "\n";
+#my $br = "<br>";
 
 # Read the configuration file
 if (! open FILE, "<", "$arguments{conf}") {
@@ -580,6 +589,94 @@ while ( <FILE> ) {
                      }
                  }
              }
+             case "pool" {
+                 my $name     = $2;
+                 my $warnCpu  = undef;
+                 my $warnMem  = undef;
+                 my $warnDisk = undef;
+                 my $critCpu  = undef;
+                 my $critMem  = undef;
+                 my $critDisk = undef;
+
+                 $readingObject = 1;
+
+                 while (<FILE>) {
+                     my $objLine = $_;
+
+                     next if ( $objLine =~ m/^#/i );
+                     if ( $objLine =~ m/([\S]+)\s+([\S]+)\s+([\S]+)/i ) {
+                         switch ($1) {
+                             case "cpu" {
+                                 if ((is_number $2)and(is_number $3)) {
+                                     $warnCpu = $2;
+                                     $critCpu = $3;
+                                 }
+                                 else {
+                                     close(FILE);
+                                     print "Invalid CPU declaration " .
+                                           "in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
+                             }
+                             case "mem" {
+                                 if ((is_number $2)and(is_number $3)) {
+                                     $warnMem = $2;
+                                     $critMem = $3;
+                                 }
+                                 else {
+                                     close(FILE);
+                                     print "Invalid MEM declaration " .
+                                           "in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
+                             }
+                             case "disk" {
+			 if ((is_number $2)and(is_number $3)) {
+                                     $warnDisk = $2;
+                                     $critDisk = $3;
+                                 }
+                                 else {
+                                     close(FILE);
+                                     print "Invalid DISK declaration " .
+                                           "in $name definition\n";
+                                     exit $status{UNKNOWN};
+                                 }
+                             }
+                             else {
+                                 close(FILE);
+                                 print "Invalid token $1 " .
+                                       "in $name definition !\n";
+                                 exit $status{UNKNOWN};
+                             }
+                         }
+                     }
+                     elsif ( $objLine =~ m/\}/i ) {
+                         # check object requirements are met, save it, break
+                         if (! defined $name ) {
+                             close(FILE);
+                             print "Invalid configuration !\n";
+                             exit $status{UNKNOWN};
+                         }
+
+                         print "Loaded pool $name\n"
+                           if $arguments{debug};
+
+                         $monitoredPools[scalar(@monitoredPools)] = (
+                             {
+                                 name         => $name,
+                                 warn_cpu     => $warnCpu,
+                                 warn_mem     => $warnMem,
+                                 warn_disk    => $warnDisk,
+                                 crit_cpu     => $critCpu,
+                                 crit_mem     => $critMem,
+                                 crit_disk    => $critDisk,
+                             },
+                         );
+                         $readingObject = 0;
+                         last;
+                     }
+                 }
+             }
              else {
                  close(FILE);
                  print "Invalid token $1 " .
@@ -641,6 +738,103 @@ my $objects = $pve->get('/cluster/resources');
 
 print "Found " . scalar(@$objects) . " objects:\n"
   if $arguments{debug};
+
+# loop the objects to find our pool definitions
+if (defined $arguments{pools}) {
+foreach my $item( @$objects ) {
+	next unless (defined $item->{pool});
+	# loop the pool array to see if that one is monitored
+        foreach my $mpool( @monitoredPools ) {
+                next unless ($item->{pool} eq $mpool->{name});
+
+                print "Found $mpool->{name} in resource list\n"
+                  if $arguments{debug};
+
+		#get pool members
+		my $pool =  $pve->get('/pools/' . $mpool->{name});
+		my $members = $pool->{members};
+
+		#fill monitored pool members not defined in config already
+		foreach my $member( @$members ) {
+		switch ($member->{type}) {
+			case "openvz" {
+			 unless (grep $_->{name} eq  $member->{name}, @monitoredOpenvz) {
+                         $monitoredOpenvz[scalar(@monitoredOpenvz)] = (
+                             {
+                                 name         => $member->{name},
+                                 warn_cpu     => $mpool->{warn_cpu},
+                                 warn_mem     => $mpool->{warn_mem},
+                                 warn_disk    => $mpool->{warn_disk},
+                                 crit_cpu     => $mpool->{crit_cpu},
+                                 crit_mem     => $mpool->{crit_mem},
+                                 crit_disk    => $mpool->{crit_disk},
+                                 alive        => undef,
+                                 curmem       => undef,
+                                 curdisk      => undef,
+                                 curcpu       => undef,
+                                 cpu_status   => $status{OK},
+                                 mem_status   => $status{OK},
+                                 disk_status  => $status{OK},
+                                 status       => $status{UNDEF},
+                                 uptime       => undef,
+                                 node         => undef,
+				 pool	      => $mpool->{name},
+                             },
+                         );
+			 print "Loaded openvz " . $member->{name} . " from pool " . $mpool->{name} . "\n"
+                           if $arguments{debug};
+			 }
+			}
+			case "qemu" {
+			 unless (grep $_->{name} eq  $member->{name}, @monitoredQemus) {
+                         $monitoredQemus[scalar(@monitoredQemus)] = (
+                             {
+                                 name         => $member->{name},
+                                 warn_cpu     => $mpool->{warn_cpu},
+                                 warn_mem     => $mpool->{warn_mem},
+                                 warn_disk    => $mpool->{warn_disk},
+                                 crit_cpu     => $mpool->{crit_cpu},
+                                 crit_mem     => $mpool->{crit_mem},
+                                 crit_disk    => $mpool->{crit_disk},
+                                 alive        => undef,
+                                 curmem       => undef,
+                                 curdisk      => undef,
+                                 curcpu       => undef,
+                                 cpu_status   => $status{OK},
+                                 mem_status   => $status{OK},
+                                 disk_status  => $status{OK},
+                                 status       => $status{UNDEF},
+                                 uptime       => undef,
+                                 node         => undef,
+				 pool	      => $mpool->{name},
+                             },
+                         );
+			 print "Loaded qemu " . $member->{name} . " from pool " . $mpool->{name} . "\n"
+                           if $arguments{debug};
+			 }
+			}
+			case "storage" {
+			 unless (grep $_->{name} eq  $member->{storage}, @monitoredStorages) {
+	                         $monitoredStorages[scalar(@monitoredStorages)] = ({
+                                 name         => $member->{storage},
+                                 node         => $member->{node},
+                                 warn_disk    => $mpool->{warn_disk},
+                                 crit_disk    => $mpool->{crit_disk},
+                                 curdisk      => undef,
+                                 disk_status  => $status{OK},
+                                 status       => $status{UNDEF},
+				 pool	      => $mpool->{name},
+                             },
+                         );
+			 print "Loaded storage " . $member->{storage} . " from pool " . $mpool->{name} . "\n"
+                           if $arguments{debug};
+			 }
+			}
+			}
+		}
+	}
+}
+}
 
 # loop the objects to compare our definitions with the current state of the cluster
 foreach my $item( @$objects ) {
@@ -825,6 +1019,7 @@ foreach my $item( @$objects ) {
 }
 
 # Finally, loop the monitored objects arrays to report situation
+my $totalScore = 0;
 if (defined $arguments{nodes}) {
     my $statusScore = 0;
     my $workingNodes = 0;
@@ -905,20 +1100,20 @@ if (defined $arguments{nodes}) {
 
             if ($mnode->{status} ne $status{UNDEF}) {
                 $reportSummary .= 
-                    "NODE $mnode->{name} $rstatus{$curNodeStatus} : " .
+                    "$mnode->{name} $rstatus{$curNodeStatus} : " .
                     "cpu $rstatus{$mnode->{cpu_status}} ($mnode->{curcpu}%), " . 
                     "mem $rstatus{$mnode->{mem_status}} ($mnode->{curmem}%), " . 
                     "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
                     "cpu alloc $rstatus{$mnode->{cpu_alloc_status}} ($cpuAlloc%), " .
                     "mem alloc $rstatus{$mnode->{mem_alloc_status}} ($memAlloc%), " .
-                    "uptime $mnode->{uptime}\n";
+                    "uptime $mnode->{uptime}" . $br;
 
                 $workingNodes++
                   if $mnode->{status} eq $status{OK};
             }
             else {
-                $reportSummary .= "NODE $mnode->{name} $rstatus{$status{CRITICAL}} : ".
-                                  "node is out of cluster (dead?)\n";
+                $reportSummary .= "$mnode->{name} $rstatus{$status{CRITICAL}} : ".
+                                  "node is out of cluster (dead?)" . $br;
             }
 
             $statusScore += $curNodeStatus;
@@ -927,8 +1122,8 @@ if (defined $arguments{nodes}) {
             $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
         else {
-            $reportSummary .= "NODE $mnode->{name} " .
-                              "is in status $rstatus{$status{UNKNOWN}}\n";
+            $reportSummary .= "$mnode->{name} " .
+                              "is in status $rstatus{$status{UNKNOWN}}" . $br;
         }
     }
 
@@ -936,16 +1131,70 @@ if (defined $arguments{nodes}) {
       if (( $statusScore > $status{UNKNOWN}) or ($statusScore < 0));
 
     print "NODES $rstatus{$statusScore}  $workingNodes / " .
-          scalar(@monitoredNodes) . " working nodes\n" . $reportSummary;
+          scalar(@monitoredNodes) . " working nodes" . $br . $reportSummary;
 
-    exit $statusScore;
-} elsif (defined $arguments{openvz}) {
+     $totalScore += $statusScore;
+}; if (defined $arguments{storages}) {
+    my $statusScore = 0;
+    my $workingStorages = 0;
+
+    my $reportSummary = '';
+
+    foreach my $mstorage( @monitoredStorages ) {
+        #Add pool name to output
+	#$mstorage->{name} .= "/" . $mstorage->{pool} if defined $mstorage->{pool};
+
+        if ($mstorage->{status} eq -1) {
+            $statusScore += $status{CRITICAL};
+
+            $reportSummary .= "$mstorage->{name} ($mstorage->{node}) " .
+                              "$rstatus{$status{CRITICAL}}: " .
+                              "storage is on a dead node" . $br;
+        }
+        elsif ($mstorage->{status} ne $status{UNKNOWN}) {
+            if (defined $mstorage->{warn_disk}) {
+                $mstorage->{disk_status} = $status{WARNING}
+                  if $mstorage->{curdisk} > $mstorage->{warn_disk};
+            }
+
+            if (defined $mstorage->{crit_disk}) {
+                $mstorage->{disk_status} = $status{CRITICAL}
+                  if $mstorage->{curdisk} > $mstorage->{crit_disk};
+            }
+
+            $reportSummary .= "$mstorage->{name} ($mstorage->{node}) " .
+                              "$rstatus{$mstorage->{status}} : " .
+                              "disk $mstorage->{curdisk}%" . $br;
+
+            $workingStorages++;
+
+	    $statusScore += $mstorage->{disk_status};
+
+            $statusScore++ if $statusScore eq $status{UNKNOWN};
+        }
+        else {
+            $reportSummary .= "$mstorage->{name} " .
+                              "is in status $rstatus{$status{UNKNOWN}}" . $br;
+        }
+    }
+
+    $statusScore = $status{CRITICAL}
+      if ($statusScore > $status{UNKNOWN});
+
+    print "STORAGE $rstatus{$statusScore} $workingStorages / " .
+          scalar(@monitoredStorages) . " working storages" . $br . $reportSummary;
+
+     $totalScore += $statusScore;
+}; if (defined $arguments{openvz}) {
     my $statusScore = 0;
     my $workingVms = 0;
 
     my $reportSummary = '';
 
     foreach my $mopenvz( @monitoredOpenvz ) {
+        #Add pool name to output
+	#$mopenvz->{name} .= "/" . $mopenvz->{pool} if defined $mopenvz->{pool};
+
         if ($mopenvz->{status} ne $status{UNDEF}) {
 
             if (defined $mopenvz->{warn_mem}) {
@@ -984,20 +1233,20 @@ if (defined $arguments{nodes}) {
                      $workingVms++;
 
                      $reportSummary .=
-                         "OPENVZ $mopenvz->{name} ($mopenvz->{node}) " .
+                         "$mopenvz->{name} ($mopenvz->{node}) " .
                          "$rstatus{$mopenvz->{status}} : " .
                          "cpu $rstatus{$mopenvz->{cpu_status}} ($mopenvz->{curcpu}%), " .
                          "mem $rstatus{$mopenvz->{mem_status}} ($mopenvz->{curmem}%), " .
                          "disk $rstatus{$mopenvz->{disk_status}} ($mopenvz->{curdisk}%) " .
-                         "uptime $mopenvz->{uptime}\n";
+                         "uptime $mopenvz->{uptime}" . $br;
                 }
                 else {
                     $mopenvz->{status} = $status{CRITICAL};
                     $statusScore += $status{CRITICAL};
 
-                    $reportSummary .= "OPENVZ $mopenvz->{name} " .
+                    $reportSummary .= "$mopenvz->{name} " .
                         "$rstatus{$mopenvz->{status}} : " .
-                        "VM is $mopenvz->{alive}\n";
+                        "VM is $mopenvz->{alive}" . $br;
                 }
             }
 
@@ -1009,8 +1258,8 @@ if (defined $arguments{nodes}) {
             $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
         else {
-            $reportSummary .= "OPENVZ $mopenvz->{name} " .
-                              "is in status $rstatus{$status{UNKNOWN}}\n";
+            $reportSummary .= "$mopenvz->{name} " .
+                              "is in status $rstatus{$status{UNKNOWN}}" . $br;
 
             $statusScore += $status{UNKNOWN};
         }
@@ -1020,65 +1269,19 @@ if (defined $arguments{nodes}) {
       if ($statusScore > $status{UNKNOWN});
 
     print "OPENVZ $rstatus{$statusScore} $workingVms / " .
-          scalar(@monitoredOpenvz) . " working VMs\n" . $reportSummary;
+          scalar(@monitoredOpenvz) . " working VMs" . $br . $reportSummary;
 
-    exit $statusScore;
-} elsif (defined $arguments{storages}) {
-    my $statusScore = 0;
-    my $workingStorages = 0;
-
-    my $reportSummary = '';
-
-    foreach my $mstorage( @monitoredStorages ) {
-
-        if ($mstorage->{status} eq -1) {
-            $statusScore += $status{CRITICAL};
-
-            $reportSummary .= "$mstorage->{name} ($mstorage->{node}) " .
-                              "$rstatus{$status{CRITICAL}}: " .
-                              "storage is on a dead node\n";
-        }
-        elsif ($mstorage->{status} ne $status{UNKNOWN}) {
-            if (defined $mstorage->{warn_disk}) {
-                $mstorage->{disk_status} = $status{WARNING}
-                  if $mstorage->{curdisk} > $mstorage->{warn_disk};
-            }
-
-            if (defined $mstorage->{crit_disk}) {
-                $mstorage->{disk_status} = $status{CRITICAL}
-                  if $mstorage->{curdisk} > $mstorage->{crit_disk};
-            }
-
-            $reportSummary .= "STORAGE $mstorage->{name} ($mstorage->{node}) " .
-                              "$rstatus{$mstorage->{status}} : " .
-                              "disk $mstorage->{curdisk}%\n";
-
-            $workingStorages++;
-
-	    $statusScore += $mstorage->{disk_status};
-
-            $statusScore++ if $statusScore eq $status{UNKNOWN};
-        }
-        else {
-            $reportSummary .= "STORAGE $mstorage->{name} " .
-                              "is in status $rstatus{$status{UNKNOWN}}\n";
-        }
-    }
-
-    $statusScore = $status{CRITICAL}
-      if ($statusScore > $status{UNKNOWN});
-
-    print "STORAGE $rstatus{$statusScore} $workingStorages / " .
-          scalar(@monitoredStorages) . " working storages\n" . $reportSummary;
-
-    exit $statusScore;
-} elsif (defined $arguments{qemu}) {
+     $totalScore += $statusScore;
+}; if (defined $arguments{qemu}) {
     my $statusScore = 0;
     my $workingVms = 0;
 
     my $reportSummary = '';
 
     foreach my $mqemu( @monitoredQemus ) {
+	#Add pool name to output
+	#$mqemu->{name} .= "/" . $mqemu->{pool} if defined $mqemu->{pool};
+
         if ($mqemu->{status} ne $status{UNDEF}) {
             if (defined $mqemu->{warn_mem}) {
                 $mqemu->{mem_status} = $status{WARNING}
@@ -1115,17 +1318,17 @@ if (defined $arguments{nodes}) {
                 $workingVms++;
 
                 $reportSummary .=
-                    "QEMU $mqemu->{name} ($mqemu->{node}) $rstatus{$mqemu->{status}} : " .
+                    "$mqemu->{name} ($mqemu->{node}) $rstatus{$mqemu->{status}} : " .
                     "cpu $rstatus{$mqemu->{cpu_status}} ($mqemu->{curcpu}%), " .
                     "mem $rstatus{$mqemu->{mem_status}} ($mqemu->{curmem}%), " .
                     "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%) " .
-                    "uptime $mqemu->{uptime}\n";
+                    "uptime $mqemu->{uptime}" . $br;
             }
             else {
                 $mqemu->{status} = $status{CRITICAL};
 
-                $reportSummary .= "QEMU $mqemu->{name} $rstatus{$mqemu->{status}} : " .
-                                  "VM is $mqemu->{alive}\n";
+                $reportSummary .= "$mqemu->{name} $rstatus{$mqemu->{status}} : " .
+                                  "VM is $mqemu->{alive}" . $br;
                 $statusScore += $status{CRITICAL};
                 $mqemu->{status} = $status{CRITICAL};
             }
@@ -1137,8 +1340,8 @@ if (defined $arguments{nodes}) {
             $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
         else {
-            $reportSummary .= "QEMU $mqemu->{name} " .
-                              "is in status $rstatus{$status{UNKNOWN}}\n";
+            $reportSummary .= "$mqemu->{name} " .
+                              "is in status $rstatus{$status{UNKNOWN}}" . $br;
 
             $statusScore += $status{UNKNOWN};
         }
@@ -1148,11 +1351,13 @@ if (defined $arguments{nodes}) {
       if ($statusScore > $status{UNKNOWN});
 
     print "QEMU $rstatus{$statusScore} $workingVms / " .
-          scalar(@monitoredQemus) . " working VMs\n" .
+          scalar(@monitoredQemus) . " working VMs" . $br .
           $reportSummary;
 
-    exit $statusScore;
-} else {
+     $totalScore += $statusScore;
+}; if (not defined $arguments{qemu} and not defined $arguments{openvz} and not defined $arguments{storages} and not defined $arguments{nodes}) {
     usage();
     exit $status{UNKNOWN};
 }
+
+exit $totalScore;
