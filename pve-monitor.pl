@@ -37,7 +37,7 @@ use Getopt::Long;
 use Switch;
 
 my $configurationFile = './pve-monitor.conf';
-my $pluginVersion = '1.01';
+my $pluginVersion = '1.02';
 
 my %status = (
     'UNDEF'    => -1,
@@ -62,7 +62,7 @@ my %arguments = (
 );
 
 sub usage {
-    print "Usage: $0 [--nodes] [--storages] [--qemu] [--openvz] [--pools] --conf <file>\n";
+    print "Usage: $0 [--nodes] [--storages] [--qemu] [--openvz] [--pools] [--perfdata] [--html] --conf <file>\n";
     print "\n";
     print "  --nodes\n";
     print "    Check the state of the cluster's members\n";
@@ -74,6 +74,10 @@ sub usage {
     print "    Check the state of the cluster's OpenVZ virtual machines\n";
     print "  --pools\n";
     print "    Check the state of the cluster's virtual machines and/or storages in defined pools\n";
+    print "  --perfdata\n";
+    print "    Print nagios performance data for graphs (PNP4Nagios supported check_multi style) \n";
+    print "  --html\n";
+    print "    Replace linebreaks with <br> in output\n";
 }
 
 sub is_number {
@@ -85,6 +89,8 @@ GetOptions ("nodes"     => \$arguments{nodes},
             "openvz"    => \$arguments{openvz},
             "qemu"      => \$arguments{qemu},
             "pools"     => \$arguments{pools},
+            "perfdata"  => \$arguments{perfdata},
+            "html"      => \$arguments{html},
             "conf=s"    => \$arguments{conf},
             'version|V' => \$arguments{show_version},
             'help|h'    => \$arguments{show_help},
@@ -133,7 +139,7 @@ my $readingObject = 0;
 
 # Output option
 my $br = "\n";
-#my $br = "<br>";
+$br = "<br>" if (defined $arguments{html});
 
 # Read the configuration file
 if (! open FILE, "<", "$arguments{conf}") {
@@ -1020,6 +1026,7 @@ foreach my $item( @$objects ) {
 
 # Finally, loop the monitored objects arrays to report situation
 my $totalScore = 0;
+my $totalPerfData = "|";
 if (defined $arguments{nodes}) {
     my $statusScore = 0;
     my $workingNodes = 0;
@@ -1139,6 +1146,7 @@ if (defined $arguments{nodes}) {
     my $workingStorages = 0;
 
     my $reportSummary = '';
+    my $perfData = '';
 
     foreach my $mstorage( @monitoredStorages ) {
         #Add pool name to output
@@ -1165,6 +1173,8 @@ if (defined $arguments{nodes}) {
             $reportSummary .= "$mstorage->{name} ($mstorage->{node}) " .
                               "$rstatus{$mstorage->{status}} : " .
                               "disk $mstorage->{curdisk}%" . $br;
+            $perfData .= "$mstorage->{name}-$mstorage->{node}::check_pve_storage::" .
+                              "disk=$mstorage->{curdisk}%;$mstorage->{warn_disk};$mstorage->{crit_disk} ";
 
             $workingStorages++;
 
@@ -1183,6 +1193,7 @@ if (defined $arguments{nodes}) {
 
     print "STORAGE $rstatus{$statusScore} $workingStorages / " .
           scalar(@monitoredStorages) . " working storages" . $br . $reportSummary;
+    $totalPerfData .= "STORAGE::check_pve_storages::storages=$workingStorages;;;0;" . scalar(@monitoredStorages) . " " . $perfData;
 
      $totalScore += $statusScore;
 }; if (defined $arguments{openvz}) {
@@ -1190,6 +1201,7 @@ if (defined $arguments{nodes}) {
     my $workingVms = 0;
 
     my $reportSummary = '';
+    my $perfData = '';
 
     foreach my $mopenvz( @monitoredOpenvz ) {
         #Add pool name to output
@@ -1239,6 +1251,10 @@ if (defined $arguments{nodes}) {
                          "mem $rstatus{$mopenvz->{mem_status}} ($mopenvz->{curmem}%), " .
                          "disk $rstatus{$mopenvz->{disk_status}} ($mopenvz->{curdisk}%) " .
                          "uptime $mopenvz->{uptime}" . $br;
+                     $perfData .=
+                         "$mopenvz->{name}::check_pve_openvz::" .
+                         "cpu=$mopenvz->{curcpu}%;$mopenvz->{warn_cpu};$mopenvz->{crit_cpu} " .
+                         "mem=$mopenvz->{curmem}%;$mopenvz->{warn_mem};$mopenvz->{crit_mem} ";
                 }
                 else {
                     $mopenvz->{status} = $status{CRITICAL};
@@ -1270,6 +1286,7 @@ if (defined $arguments{nodes}) {
 
     print "OPENVZ $rstatus{$statusScore} $workingVms / " .
           scalar(@monitoredOpenvz) . " working VMs" . $br . $reportSummary;
+    $totalPerfData .= "OPENVZ::check_pve_vms::vmcount=$workingVms;;;0;" . scalar(@monitoredOpenvz) . " " . $perfData;
 
      $totalScore += $statusScore;
 }; if (defined $arguments{qemu}) {
@@ -1277,6 +1294,7 @@ if (defined $arguments{nodes}) {
     my $workingVms = 0;
 
     my $reportSummary = '';
+    my $perfData = '';
 
     foreach my $mqemu( @monitoredQemus ) {
 	#Add pool name to output
@@ -1323,6 +1341,10 @@ if (defined $arguments{nodes}) {
                     "mem $rstatus{$mqemu->{mem_status}} ($mqemu->{curmem}%), " .
                     "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%) " .
                     "uptime $mqemu->{uptime}" . $br;
+                $perfData .=
+                    "$mqemu->{name}::check_pve_qemu::" .
+                    "cpu=$mqemu->{curcpu}%;$mqemu->{warn_cpu};$mqemu->{crit_cpu} " .
+                    "mem=$mqemu->{curmem}%;$mqemu->{warn_mem};$mqemu->{crit_mem} ";
             }
             else {
                 $mqemu->{status} = $status{CRITICAL};
@@ -1353,6 +1375,7 @@ if (defined $arguments{nodes}) {
     print "QEMU $rstatus{$statusScore} $workingVms / " .
           scalar(@monitoredQemus) . " working VMs" . $br .
           $reportSummary;
+    $totalPerfData .= "QEMU::check_pve_vms::vmcount=$workingVms;;;0;" . scalar(@monitoredQemus) . " " . $perfData;
 
      $totalScore += $statusScore;
 }; if (not defined $arguments{qemu} and not defined $arguments{openvz} and not defined $arguments{storages} and not defined $arguments{nodes}) {
@@ -1360,4 +1383,6 @@ if (defined $arguments{nodes}) {
     exit $status{UNKNOWN};
 }
 
+print $totalPerfData
+   if (defined $arguments{perfdata} and $totalPerfData ne "|");
 exit $totalScore;
