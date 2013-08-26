@@ -7,9 +7,6 @@
 #
 #####################################################
 #
-#   Script written by Damien PIQUET
-#     damien.piquet@iutbeziers.fr || piqudam@gmail.com
-#
 #   Requires Net::Proxmox::VE librairy:
 #     git://github.com/dpiquet/proxmox-ve-api-perl.git
 #
@@ -26,6 +23,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors & contributors
+#   Damien PIQUET damien.piquet@iutbeziers.fr || piqudam@gmail.com
+#   Alexey Dvoryanchikov github.com/dvoryanchikov
 #
 
 use strict;
