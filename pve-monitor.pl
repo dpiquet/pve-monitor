@@ -79,6 +79,8 @@ sub usage {
     print "    Print nagios performance data for graphs (PNP4Nagios supported check_multi style) \n";
     print "  --html\n";
     print "    Replace linebreaks with <br> in output\n";
+    print "  --debug\n"
+    print "    Get more log output\n"
 }
 
 sub is_number {
