@@ -750,99 +750,99 @@ print "Found " . scalar(@$objects) . " objects:\n"
 
 # loop the objects to find our pool definitions
 if (defined $arguments{pools}) {
-foreach my $item( @$objects ) {
-	next unless (defined $item->{pool});
-	# loop the pool array to see if that one is monitored
+    foreach my $item( @$objects ) {
+        next unless (defined $item->{pool});
+        # loop the pool array to see if that one is monitored
         foreach my $mpool( @monitoredPools ) {
-                next unless ($item->{pool} eq $mpool->{name});
+            next unless ($item->{pool} eq $mpool->{name});
 
-                print "Found $mpool->{name} in resource list\n"
-                  if $arguments{debug};
+            print "Found $mpool->{name} in resource list\n"
+              if $arguments{debug};
 
-		#get pool members
-		my $pool =  $pve->get('/pools/' . $mpool->{name});
-		my $members = $pool->{members};
+	    #get pool members
+	    my $pool =  $pve->get('/pools/' . $mpool->{name});
+	    my $members = $pool->{members};
 
-		#fill monitored pool members not defined in config already
-		foreach my $member( @$members ) {
-		switch ($member->{type}) {
-			case "openvz" {
-			 unless (grep $_->{name} eq  $member->{name}, @monitoredOpenvz) {
-                         $monitoredOpenvz[scalar(@monitoredOpenvz)] = (
-                             {
-                                 name         => $member->{name},
-                                 warn_cpu     => $mpool->{warn_cpu},
-                                 warn_mem     => $mpool->{warn_mem},
-                                 warn_disk    => $mpool->{warn_disk},
-                                 crit_cpu     => $mpool->{crit_cpu},
-                                 crit_mem     => $mpool->{crit_mem},
-                                 crit_disk    => $mpool->{crit_disk},
-                                 alive        => undef,
-                                 curmem       => undef,
-                                 curdisk      => undef,
-                                 curcpu       => undef,
-                                 cpu_status   => $status{OK},
-                                 mem_status   => $status{OK},
-                                 disk_status  => $status{OK},
-                                 status       => $status{UNDEF},
-                                 uptime       => undef,
-                                 node         => undef,
-				 pool	      => $mpool->{name},
-                             },
-                         );
-			 print "Loaded openvz " . $member->{name} . " from pool " . $mpool->{name} . "\n"
-                           if $arguments{debug};
-			 }
-			}
-			case "qemu" {
-			 unless (grep $_->{name} eq  $member->{name}, @monitoredQemus) {
-                         $monitoredQemus[scalar(@monitoredQemus)] = (
-                             {
-                                 name         => $member->{name},
-                                 warn_cpu     => $mpool->{warn_cpu},
-                                 warn_mem     => $mpool->{warn_mem},
-                                 warn_disk    => $mpool->{warn_disk},
-                                 crit_cpu     => $mpool->{crit_cpu},
-                                 crit_mem     => $mpool->{crit_mem},
-                                 crit_disk    => $mpool->{crit_disk},
-                                 alive        => undef,
-                                 curmem       => undef,
-                                 curdisk      => undef,
-                                 curcpu       => undef,
-                                 cpu_status   => $status{OK},
-                                 mem_status   => $status{OK},
-                                 disk_status  => $status{OK},
-                                 status       => $status{UNDEF},
-                                 uptime       => undef,
-                                 node         => undef,
-				 pool	      => $mpool->{name},
-                             },
-                         );
-			 print "Loaded qemu " . $member->{name} . " from pool " . $mpool->{name} . "\n"
-                           if $arguments{debug};
-			 }
-			}
-			case "storage" {
-			 unless (grep $_->{name} eq  $member->{storage}, @monitoredStorages) {
-	                         $monitoredStorages[scalar(@monitoredStorages)] = ({
-                                 name         => $member->{storage},
-                                 node         => $member->{node},
-                                 warn_disk    => $mpool->{warn_disk},
-                                 crit_disk    => $mpool->{crit_disk},
-                                 curdisk      => undef,
-                                 disk_status  => $status{OK},
-                                 status       => $status{UNDEF},
-				 pool	      => $mpool->{name},
-                             },
-                         );
-			 print "Loaded storage " . $member->{storage} . " from pool " . $mpool->{name} . "\n"
-                           if $arguments{debug};
-			 }
-			}
-			}
-		}
-	}
-}
+	    #fill monitored pool members not defined in config already
+	    foreach my $member( @$members ) {
+	        switch ($member->{type}) {
+	            case "openvz" {
+                        unless (grep $_->{name} eq  $member->{name}, @monitoredOpenvz) {
+                            $monitoredOpenvz[scalar(@monitoredOpenvz)] = (
+                            {
+                                name         => $member->{name},
+                                warn_cpu     => $mpool->{warn_cpu},
+                                warn_mem     => $mpool->{warn_mem},
+                                warn_disk    => $mpool->{warn_disk},
+                                crit_cpu     => $mpool->{crit_cpu},
+                                crit_mem     => $mpool->{crit_mem},
+                                crit_disk    => $mpool->{crit_disk},
+                                alive        => undef,
+                                curmem       => undef,
+                                curdisk      => undef,
+                                curcpu       => undef,
+                                cpu_status   => $status{OK},
+                                mem_status   => $status{OK},
+                                disk_status  => $status{OK},
+                                status       => $status{UNDEF},
+                                uptime       => undef,
+                                node         => undef,
+		                pool         => $mpool->{name},
+                            },);
+
+	                    print "Loaded openvz " . $member->{name} . " from pool " . $mpool->{name} . "\n"
+                              if $arguments{debug};
+	                }
+	            }
+	            case "qemu" {
+	                unless (grep $_->{name} eq  $member->{name}, @monitoredQemus) {
+		            $monitoredQemus[scalar(@monitoredQemus)] = (
+		            {
+			        name         => $member->{name},
+			        warn_cpu     => $mpool->{warn_cpu},
+			        warn_mem     => $mpool->{warn_mem},
+			        warn_disk    => $mpool->{warn_disk},
+			        crit_cpu     => $mpool->{crit_cpu},
+			        crit_mem     => $mpool->{crit_mem},
+			        crit_disk    => $mpool->{crit_disk},
+			        alive        => undef,
+			        curmem       => undef,
+			        curdisk      => undef,
+			        curcpu       => undef,
+			        cpu_status   => $status{OK},
+			        mem_status   => $status{OK},
+			        disk_status  => $status{OK},
+			        status       => $status{UNDEF},
+			        uptime       => undef,
+			        node         => undef,
+			        pool         => $mpool->{name},
+		             },);
+		 
+                             print "Loaded qemu " . $member->{name} . " from pool " . $mpool->{name} . "\n"
+		               if $arguments{debug};
+		        }
+	            }
+	            case "storage" {
+	                unless (grep $_->{name} eq  $member->{storage}, @monitoredStorages) {
+			     $monitoredStorages[scalar(@monitoredStorages)] = ({
+			         name         => $member->{storage},
+			         node         => $member->{node},
+			         warn_disk    => $mpool->{warn_disk},
+			         crit_disk    => $mpool->{crit_disk},
+			         curdisk      => undef,
+			         disk_status  => $status{OK},
+			         status       => $status{UNDEF},
+			         pool         => $mpool->{name},
+		             },);
+
+		             print "Loaded storage " . $member->{storage} . " from pool " . $mpool->{name} . "\n"
+		               if $arguments{debug};
+		         }
+	            }
+                }
+            }
+        }
+    }
 }
 
 # loop the objects to compare our definitions with the current state of the cluster
