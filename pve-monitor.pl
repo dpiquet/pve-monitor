@@ -30,7 +30,7 @@
 #
 
 use strict;
-#use warnings;
+# use warnings;
 
 use Net::Proxmox::VE;
 use Data::Dumper;
@@ -55,6 +55,8 @@ my %arguments = (
     'storages'       => undef,
     'openvz'         => undef,
     'qemu'           => undef,
+    'pools'          => undef,
+    'qdisk'          => undef,
     'conf'           => undef,
     'show_help'      => undef,
     'show_version'   => undef,
@@ -75,12 +77,14 @@ sub usage {
     print "    Check the state of the cluster's OpenVZ virtual machines\n";
     print "  --pools\n";
     print "    Check the state of the cluster's virtual machines and/or storages in defined pools\n";
+    print "  --qdisk\n";
+    print "    Check the state of the cluster's quorum disk\n";
     print "  --perfdata\n";
     print "    Print nagios performance data for graphs (PNP4Nagios supported check_multi style) \n";
     print "  --html\n";
     print "    Replace linebreaks with <br> in output\n";
-    print "  --debug\n"
-    print "    Get more log output\n"
+    print "  --debug\n";
+    print "    Get more log output\n";
 }
 
 sub is_number {
@@ -92,6 +96,7 @@ GetOptions ("nodes"     => \$arguments{nodes},
             "openvz"    => \$arguments{openvz},
             "qemu"      => \$arguments{qemu},
             "pools"     => \$arguments{pools},
+            "qdisk"    => \$arguments{qdisk},
             "perfdata"  => \$arguments{perfdata},
             "html"      => \$arguments{html},
             "conf=s"    => \$arguments{conf},
@@ -137,6 +142,15 @@ my $username = undef;
 my $password = undef;
 my $realm = undef;
 my $pve;
+
+my $qdiskStatus = undef;
+my %qdisk = (
+    id => undef,
+    name => undef,
+    estranged => undef,
+    cstate => undef,
+    status => $status{UNKNOWN},
+);
 
 my $readingObject = 0;
 
@@ -713,6 +727,8 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
     my $password = $monitoredNodes[$a]->{password} or next;
     my $realm    = $monitoredNodes[$a]->{realm}    or next;
 
+    my $isClusterMember = 0;
+
     print "Trying " . $host . "...\n"
       if $arguments{debug};
 
@@ -729,17 +745,80 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
     next unless $pve->check_login_ticket;
     next unless $pve->api_version_check;
 
+
     # Here we are connected, quit the loop
     print "Successfully connected to " . $host . " !\n"
       if $arguments{debug};
 
-    $connected = 1;
-    last;
+
+    # check if node is quorate, if it's not then
+    # we are probably on a dead node and data is irrelevant
+    my $cstatuses = $pve->get('/cluster/status');
+    foreach my $item( @$cstatuses ) {
+        switch ($item->{type}) {
+            case "node" {
+                # qdisks are also type node
+                if ($item->{qdisk} eq "1") {
+                    print "Found qdisk $item->{name} in cluster\n"
+                      if $arguments{debug};
+
+                    $qdisk{id}        = $item->{id};
+                    $qdisk{name}      = $item->{name};
+                    $qdisk{estranged} = $item->{estranged};
+                    $qdisk{cstate}    = $item->{state};
+                }
+                elsif ($item->{ip} eq $host) {
+                    if ($item->{estranged} eq "0") {
+                         $isClusterMember = 1;
+                         print "Node $item->{ip} is in cluster and seems sane. Using it to query statuses\n"
+                           if $arguments{debug};
+                    }
+                    else {
+                        print "Node $item->{ip} is estranged ! Skipping it !\n"
+                          if $arguments{debug};
+                    }
+                }
+            }
+            default {
+                next;
+            }
+        }
+    }
+    
+    if ($isClusterMember) {
+        $connected = 1;
+        last;
+    }
 }
 
 if (! $connected ) {
     print "Could not connect to any server !";
     exit $status{UNKNOWN};
+}
+
+if (defined $arguments{qdisk}) {
+    my $statusStr = '';
+
+    if ( defined $qdisk{id} ) {
+        $qdisk{status} = $status{OK};
+
+        if ($qdisk{estranged} eq "1") {
+            $statusStr .= "Qdisk $qdisk{name} is estranged !\n";
+            $qdisk{status} += $status{WARNING};
+        }
+
+        if ($qdisk{cstate} eq "0") {
+            $statusStr .= "Qdisk $qdisk{name} is in invalid status !\n";
+            $qdisk{status} += $status{WARNING};
+        }
+
+        print "Qdisk $rstatus{$qdisk{status}}\n$statusStr";
+        exit $qdisk{status};
+    }
+    else {
+        print "No qdisk found in cluster !\n";
+        exit $status{UNKNOWN};
+    }
 }
 
 # list all ressources of the cluster
