@@ -38,7 +38,7 @@ use Getopt::Long;
 use Switch;
 
 my $configurationFile = './pve-monitor.conf';
-my $pluginVersion = '1.02';
+my $pluginVersion = '1.03';
 
 my %status = (
     'UNDEF'    => -1,
@@ -62,6 +62,7 @@ my %arguments = (
     'show_version'   => undef,
     'timeout'        => 5,
     'debug'          => undef,
+    'singlenode'     => undef,
 );
 
 sub usage {
@@ -79,6 +80,8 @@ sub usage {
     print "    Check the state of the cluster's virtual machines and/or storages in defined pools\n";
     print "  --qdisk\n";
     print "    Check the state of the cluster's quorum disk\n";
+    print "  --singlenode\n";
+    print "    Consider there is no cluster, just a single node\n";
     print "  --perfdata\n";
     print "    Print nagios performance data for graphs (PNP4Nagios supported check_multi style) \n";
     print "  --html\n";
@@ -91,19 +94,20 @@ sub is_number {
     ($_[0] =~ m/^[0-9]+$/) ? return 1 : return 0;
 }
 
-GetOptions ("nodes"     => \$arguments{nodes},
-            "storages"  => \$arguments{storages},
-            "openvz"    => \$arguments{openvz},
-            "qemu"      => \$arguments{qemu},
-            "pools"     => \$arguments{pools},
-            "qdisk"     => \$arguments{qdisk},
-            "perfdata"  => \$arguments{perfdata},
-            "html"      => \$arguments{html},
-            "conf=s"    => \$arguments{conf},
-            'version|V' => \$arguments{show_version},
-            'help|h'    => \$arguments{show_help},
-            'timeout|t' => \$arguments{timeout},
-            'debug'     => \$arguments{debug},
+GetOptions ("nodes"       => \$arguments{nodes},
+            "storages"    => \$arguments{storages},
+            "openvz"      => \$arguments{openvz},
+            "qemu"        => \$arguments{qemu},
+            "pools"       => \$arguments{pools},
+            "qdisk"       => \$arguments{qdisk},
+            "singlenode"  => \$arguments{singlenode},
+            "perfdata"    => \$arguments{perfdata},
+            "html"        => \$arguments{html},
+            "conf=s"      => \$arguments{conf},
+            'version|V'   => \$arguments{show_version},
+            'help|h'      => \$arguments{show_help},
+            'timeout|t'   => \$arguments{timeout},
+            'debug'       => \$arguments{debug},
 );
 
 # set the alarm to timeout plugin
@@ -749,6 +753,13 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
     # Here we are connected, quit the loop
     print "Successfully connected to " . $host . " !\n"
       if $arguments{debug};
+
+    # skip cluster status checks if we are not in cluster
+    if (defined $arguments{singlenode}) {
+        print "Skipping cluster checks (--singlenode passed to command line)\n";
+        $connected = 1;
+        last;
+    }
 
 
     # check if node is quorate, if it's not then
