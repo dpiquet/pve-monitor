@@ -96,7 +96,7 @@ GetOptions ("nodes"     => \$arguments{nodes},
             "openvz"    => \$arguments{openvz},
             "qemu"      => \$arguments{qemu},
             "pools"     => \$arguments{pools},
-            "qdisk"    => \$arguments{qdisk},
+            "qdisk"     => \$arguments{qdisk},
             "perfdata"  => \$arguments{perfdata},
             "html"      => \$arguments{html},
             "conf=s"    => \$arguments{conf},
@@ -331,9 +331,9 @@ while ( <FILE> ) {
                                  status           => $status{UNDEF},
                                  uptime           => undef,
                                  mem_alloc        => 0,
-                                 maxmem          => undef,
+                                 maxmem           => undef,
                                  cpu_alloc        => undef,
-                                 maxcpu          => undef,
+                                 maxcpu           => undef,
                              },
                          );
                          
@@ -757,20 +757,20 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
     foreach my $item( @$cstatuses ) {
         switch ($item->{type}) {
             case "node" {
-                # qdisks are also type node
+                # qdisks are also type "node"
                 if ($item->{qdisk} eq "1") {
                     print "Found qdisk $item->{name} in cluster\n"
                       if $arguments{debug};
 
                     $qdisk{id}        = $item->{id};
                     $qdisk{name}      = $item->{name};
-                    $qdisk{estranged} = $item->{estranged};
-                    $qdisk{cstate}    = $item->{state};
+                    $qdisk{estranged} = $item->{estranged}; # boolean value
+                    $qdisk{cstate}    = $item->{state}; # boolean value
                 }
-                elsif ($item->{ip} eq $host) {
+                elsif ($item->{local} eq "1") {
                     if ($item->{estranged} eq "0") {
                          $isClusterMember = 1;
-                         print "Node $item->{ip} is in cluster and seems sane. Using it to query statuses\n"
+                         print "Node $item->{ip} is in cluster and seems sane. Using it to query cluster status\n"
                            if $arguments{debug};
                     }
                     else {
@@ -787,7 +787,7 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
     
     if ($isClusterMember) {
         $connected = 1;
-        last;
+        last; # we queried a valid cluster member, quit the loop
     }
 }
 
