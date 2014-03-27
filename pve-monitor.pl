@@ -756,7 +756,9 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
 
     # skip cluster status checks if we are not in cluster
     if (defined $arguments{singlenode}) {
-        print "Skipping cluster checks (--singlenode passed to command line)\n";
+        print "Skipping cluster checks (--singlenode passed to command line)\n"
+          if $arguments{debug};
+
         $connected = 1;
         last;
     }
