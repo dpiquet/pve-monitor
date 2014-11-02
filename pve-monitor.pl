@@ -105,9 +105,12 @@ GetOptions ("nodes"       => \$arguments{nodes},
             "conf=s"      => \$arguments{conf},
             'version|V'   => \$arguments{show_version},
             'help|h'      => \$arguments{show_help},
-            'timeout|t'   => \$arguments{timeout},
+            'timeout|t=s'   => \$arguments{timeout},
             'debug'       => \$arguments{debug},
 );
+
+print "Setting timeout to $arguments{timeout}\n"
+    if $arguments{debug};
 
 # set the alarm to timeout plugin
 # before reading configuration file
