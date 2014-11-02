@@ -33,7 +33,6 @@ use strict;
 # use warnings;
 
 use Net::Proxmox::VE;
-use Data::Dumper;
 use Getopt::Long;
 use Switch;
 
