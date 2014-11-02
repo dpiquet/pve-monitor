@@ -37,7 +37,7 @@ use Getopt::Long;
 use Switch;
 
 my $configurationFile = './pve-monitor.conf';
-my $pluginVersion = '1.03';
+my $pluginVersion = '1.04';
 
 my %status = (
     'UNDEF'    => -1,
