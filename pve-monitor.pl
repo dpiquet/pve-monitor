@@ -105,20 +105,12 @@ GetOptions ("nodes"       => \$arguments{nodes},
             "conf=s"      => \$arguments{conf},
             'version|V'   => \$arguments{show_version},
             'help|h'      => \$arguments{show_help},
-            'timeout|t=s'   => \$arguments{timeout},
+            'timeout|t=s' => \$arguments{timeout},
             'debug'       => \$arguments{debug},
 );
 
 print "Setting timeout to $arguments{timeout}\n"
     if $arguments{debug};
-
-# set the alarm to timeout plugin
-# before reading configuration file
-local $SIG{ALRM} = sub {
-    print "Plugin timed out !\n";
-    exit $status{UNKNOWN};
-};
-alarm $arguments{timeout};
 
 if (defined $arguments{show_version}) {
     print "$0 version $pluginVersion\n";
@@ -722,9 +714,6 @@ if ( $readingObject ) {
     print "Invalid configuration ! (Probably missing '}' ) \n";
     exit $status{UNKNOWN};
 }
-
-# Reset alarm to give a value relative to the number of nodes
-alarm ($arguments{timeout} * scalar(@monitoredNodes) + $arguments{timeout});
 
 for($a = 0; $a < scalar(@monitoredNodes); $a++) {
     my $host     = $monitoredNodes[$a]->{address}  or next;
