@@ -772,7 +772,7 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
                     $qdisk{cstate}    = $item->{state}; # boolean value
                 }
                 elsif ($item->{local} eq "1") {
-                    if ($item->{estranged} eq "0") {
+                    if ($item->{estranged} eq "0" || $item->{estranged} eq "") {
                          $isClusterMember = 1;
                          print "Node $item->{ip} is in cluster and seems sane. Using it to query cluster status\n"
                            if $arguments{debug};
