@@ -110,6 +110,9 @@ GetOptions ("nodes"       => \$arguments{nodes},
             'debug'       => \$arguments{debug},
 );
 
+print "Starting pve-monitor $pluginVersion\n"
+	if $arguments{debug};
+
 print "Setting timeout to $arguments{timeout}\n"
     if $arguments{debug};
 
