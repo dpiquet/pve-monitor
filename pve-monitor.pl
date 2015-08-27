@@ -33,11 +33,12 @@ use strict;
 # use warnings;
 
 use Net::Proxmox::VE;
+use IO::Socket::SSL;
 use Getopt::Long;
 use Switch;
 
 my $configurationFile = './pve-monitor.conf';
-my $pluginVersion = '1.05';
+my $pluginVersion = '1.06';
 
 my %status = (
     'UNDEF'    => -1,
@@ -734,6 +735,10 @@ for($a = 0; $a < scalar(@monitoredNodes); $a++) {
         debug    => $arguments{debug},
         realm    => $realm,
         timeout  => $arguments{timeout},
+		ssl_opts => {
+			SSL_verify_mode => SSL_VERIFY_NONE,
+			verify_hostname => 0
+		}
     );
 
     next unless $pve->login;
