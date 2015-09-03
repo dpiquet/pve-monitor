@@ -1,0 +1,15 @@
+language: perl
+perl:
+  - "5.20"
+  - "5.18"
+  - "5.16"
+  - "5.14"
+
+before_install:
+        apt-get update -qq
+        apt-get install -qq libjson-perl libwww-perl libio-socket-ssl-perl libswitch-perl
+
+install:
+        cpan install Net::Proxmox::VE
+
+
