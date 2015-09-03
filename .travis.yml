@@ -6,8 +6,8 @@ perl:
   - "5.14"
 
 before_install:
-        apt-get update -qq
-        apt-get install -qq libjson-perl libwww-perl libio-socket-ssl-perl libswitch-perl
+        apt-get update
+        apt-get install -y libjson-perl libwww-perl libio-socket-ssl-perl libswitch-perl
 
 install:
         cpan install Net::Proxmox::VE
