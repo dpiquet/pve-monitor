@@ -118,7 +118,7 @@ print "Setting timeout to $arguments{timeout}\n"
 
 if (defined $arguments{show_version}) {
     print "$0 version $pluginVersion\n";
-    exit $status{UNKNOWN};
+    exit $status{OK};
 }
 
 if (defined $arguments{show_help}) {
