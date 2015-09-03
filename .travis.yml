@@ -8,6 +8,10 @@ perl:
 before_install:
         - sudo apt-get update
         - sudo apt-get install -y libjson-perl libwww-perl libio-socket-ssl-perl libswitch-perl
+        - cpanm IO::Socket::SSL
+        - cpanm Getopt::Long
+        - cpanm Switch
+
 
 install:
         - cpanm Net::Proxmox::VE
