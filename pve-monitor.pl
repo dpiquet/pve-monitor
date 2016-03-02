@@ -419,7 +419,7 @@ while ( <FILE> ) {
                  }
 
              }
-             case "openvz" {
+             case /openvz|lxc|container/ {
                  my $name     = $2;
                  my $warnCpu  = undef;
                  my $warnMem  = undef;
@@ -857,7 +857,7 @@ if (defined $arguments{pools}) {
 	    #fill monitored pool members not defined in config already
 	    foreach my $member( @$members ) {
 	        switch ($member->{type}) {
-	            case "openvz" {
+	            case /openvz|lxc/ {
                         unless (grep $_->{name} eq  $member->{name}, @monitoredOpenvz) {
                             $monitoredOpenvz[scalar(@monitoredOpenvz)] = (
                             {
@@ -881,7 +881,7 @@ if (defined $arguments{pools}) {
 		                pool         => $mpool->{name},
                             },);
 
-	                    print "Loaded openvz " . $member->{name} . " from pool " . $mpool->{name} . "\n"
+	                    print "Loaded container " . $member->{name} . " from pool " . $mpool->{name} . "\n"
                               if $arguments{debug};
 	                }
 	            }
@@ -1006,7 +1006,7 @@ foreach my $item( @$objects ) {
 
             next;
         }
-        case "openvz" {
+        case /openvz|lxc/ {
             #loop monitored nodes to increase mem_hi_limit
             foreach my $mnode( @monitoredNodes ) {
                 next unless $mnode->{name} eq $item->{node};
