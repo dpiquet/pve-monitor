@@ -38,7 +38,7 @@ use Getopt::Long;
 use Switch;
 
 my $configurationFile = './pve-monitor.conf';
-my $pluginVersion = '1.06';
+my $pluginVersion = '1.07';
 
 my %status = (
     'UNDEF'    => -1,
@@ -76,6 +76,9 @@ sub usage {
     print "    Check the state of the cluster's Qemu virtual machines\n";
     print "  --openvz\n";
     print "    Check the state of the cluster's OpenVZ virtual machines\n";
+    print "    [DEPRECATED] We keep it for pve-monitor < 1.07 back compat\n";
+	print "  --containers\n";
+	print "    Check the state of the cluster's containers (both openvz and lxc)\n";
     print "  --pools\n";
     print "    Check the state of the cluster's virtual machines and/or storages in defined pools\n";
     print "  --qdisk\n";
@@ -97,6 +100,7 @@ sub is_number {
 GetOptions ("nodes"       => \$arguments{nodes},
             "storages"    => \$arguments{storages},
             "openvz"      => \$arguments{openvz},
+            "containers"   => \$arguments{openvz},
             "qemu"        => \$arguments{qemu},
             "pools"       => \$arguments{pools},
             "qdisk"       => \$arguments{qdisk},
