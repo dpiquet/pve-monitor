@@ -66,7 +66,7 @@ my %arguments = (
 );
 
 sub usage {
-    print "Usage: $0 [--nodes] [--storages] [--qemu] [--openvz] [--pools] [--perfdata] [--html] --conf <file>\n";
+    print "Usage: $0 [--nodes] [--storages] [--qemu] [--openvz] [--pools] <All|Pool> [--perfdata] [--html] --conf <file>\n";
     print "\n";
     print "  --nodes\n";
     print "    Check the state of the cluster's members\n";
@@ -81,6 +81,7 @@ sub usage {
 	print "    Check the state of the cluster's containers (both openvz and lxc)\n";
     print "  --pools\n";
     print "    Check the state of the cluster's virtual machines and/or storages in defined pools\n";
+    print "    Can be All or already defined Pool name\n";
     print "  --qdisk\n";
     print "    Check the state of the cluster's quorum disk\n";
     print "  --singlenode\n";
@@ -102,7 +103,7 @@ GetOptions ("nodes"       => \$arguments{nodes},
             "openvz"      => \$arguments{openvz},
             "containers"   => \$arguments{openvz},
             "qemu"        => \$arguments{qemu},
-            "pools"       => \$arguments{pools},
+            "pools=s"       => \$arguments{pools},
             "qdisk"       => \$arguments{qdisk},
             "singlenode"  => \$arguments{singlenode},
             "perfdata"    => \$arguments{perfdata},
@@ -627,84 +628,87 @@ while ( <FILE> ) {
                  my $critMem  = undef;
                  my $critDisk = undef;
 
-                 $readingObject = 1;
+		 if ( $arguments{pools} eq $name || $arguments{pools} eq 'All' ) {
 
-                 while (<FILE>) {
-                     my $objLine = $_;
+                 	$readingObject = 1;
 
-                     next if ( $objLine =~ m/^#/i );
-                     if ( $objLine =~ m/([\S]+)\s+([\S]+)\s+([\S]+)/i ) {
-                         switch ($1) {
-                             case "cpu" {
-                                 if ((is_number $2)and(is_number $3)) {
-                                     $warnCpu = $2;
-                                     $critCpu = $3;
-                                 }
-                                 else {
-                                     close(FILE);
-                                     print "Invalid CPU declaration " .
-                                           "in $name definition\n";
-                                     exit $status{UNKNOWN};
-                                 }
-                             }
-                             case "mem" {
-                                 if ((is_number $2)and(is_number $3)) {
-                                     $warnMem = $2;
-                                     $critMem = $3;
-                                 }
-                                 else {
-                                     close(FILE);
-                                     print "Invalid MEM declaration " .
-                                           "in $name definition\n";
-                                     exit $status{UNKNOWN};
-                                 }
-                             }
-                             case "disk" {
-			 if ((is_number $2)and(is_number $3)) {
-                                     $warnDisk = $2;
-                                     $critDisk = $3;
-                                 }
-                                 else {
-                                     close(FILE);
-                                     print "Invalid DISK declaration " .
-                                           "in $name definition\n";
-                                     exit $status{UNKNOWN};
-                                 }
-                             }
-                             else {
-                                 close(FILE);
-                                 print "Invalid token $1 " .
-                                       "in $name definition !\n";
-                                 exit $status{UNKNOWN};
-                             }
-                         }
-                     }
-                     elsif ( $objLine =~ m/\}/i ) {
-                         # check object requirements are met, save it, break
-                         if (! defined $name ) {
-                             close(FILE);
-                             print "Invalid configuration !\n";
-                             exit $status{UNKNOWN};
-                         }
+                 	while (<FILE>) {
+                     		my $objLine = $_;
 
-                         print "Loaded pool $name\n"
-                           if $arguments{debug};
+                     		next if ( $objLine =~ m/^#/i );
+                     		if ( $objLine =~ m/([\S]+)\s+([\S]+)\s+([\S]+)/i ) {
+                         		switch ($1) {
+                             			case "cpu" {
+                                 			if ((is_number $2)and(is_number $3)) {
+                                     				$warnCpu = $2;
+                                     				$critCpu = $3;
+                                 			}
+                                 			else {
+                                     				close(FILE);
+                                     				print "Invalid CPU declaration " .
+                                           				"in $name definition\n";
+                                     				exit $status{UNKNOWN};
+                                 			}
+                             			}
+                             			case "mem" {
+                                 			if ((is_number $2)and(is_number $3)) {
+                                     				$warnMem = $2;
+                                     				$critMem = $3;
+                                 			}
+                                 			else {
+                                     				close(FILE);
+                                     				print "Invalid MEM declaration " .
+                                           				"in $name definition\n";
+                                     				exit $status{UNKNOWN};
+                                 			}
+                             			}
+                             			case "disk" {
+			 				if ((is_number $2)and(is_number $3)) {
+                                     				$warnDisk = $2;
+                                     				$critDisk = $3;
+                                 			}
+                                 			else {
+                                     				close(FILE);
+                                     				print "Invalid DISK declaration " .
+                                           				"in $name definition\n";
+                                     				exit $status{UNKNOWN};
+                                 			}
+                             			}
+                             			else {
+                                			close(FILE);
+                                 			print "Invalid token $1 " .
+                                       				"in $name definition !\n";
+                                 			exit $status{UNKNOWN};
+                             			}
+                         		}
+                     		}
+                     		elsif ( $objLine =~ m/\}/i ) {
+                         		# check object requirements are met, save it, break
+                         		if (! defined $name ) {
+                             			close(FILE);
+                             			print "Invalid configuration !\n";
+                             			exit $status{UNKNOWN};
+                         		}
 
-                         $monitoredPools[scalar(@monitoredPools)] = (
-                             {
-                                 name         => $name,
-                                 warn_cpu     => $warnCpu,
-                                 warn_mem     => $warnMem,
-                                 warn_disk    => $warnDisk,
-                                 crit_cpu     => $critCpu,
-                                 crit_mem     => $critMem,
-                                 crit_disk    => $critDisk,
-                             },
-                         );
-                         $readingObject = 0;
-                         last;
-                     }
-                 }
+                         		print "Loaded pool $name\n"
+                           		if $arguments{debug};
+
+                         		$monitoredPools[scalar(@monitoredPools)] = (
+						{
+                                 			name         => $name,
+                                 			warn_cpu     => $warnCpu,
+                                 			warn_mem     => $warnMem,
+                                 			warn_disk    => $warnDisk,
+                                 			crit_cpu     => $critCpu,
+                                 			crit_mem     => $critMem,
+                                 			crit_disk    => $critDisk,
+                             			},
+					);
+                         		$readingObject = 0;
+                         		last;
+                     		}
+                 	}
+		}
              }
              else {
                  close(FILE);
