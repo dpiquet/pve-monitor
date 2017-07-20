@@ -63,6 +63,7 @@ my %arguments = (
     'timeout'        => 5,
     'debug'          => undef,
     'singlenode'     => undef,
+    'ignoretemp'     => undef,
 );
 
 sub usage {
@@ -77,11 +78,13 @@ sub usage {
     print "  --openvz\n";
     print "    Check the state of the cluster's OpenVZ virtual machines\n";
     print "    [DEPRECATED] We keep it for pve-monitor < 1.07 back compat\n";
-	print "  --containers\n";
-	print "    Check the state of the cluster's containers (both openvz and lxc)\n";
+    print "  --containers\n";
+    print "    Check the state of the cluster's containers (both openvz and lxc)\n";
     print "  --pools\n";
     print "    Check the state of the cluster's virtual machines and/or storages in defined pools\n";
     print "    Can be All or already defined Pool name\n";
+    print "  --ignoretemp\n";
+    print "    Ignore VMs defined as templates from pool list. Works only with --pools option\n";
     print "  --qdisk\n";
     print "    Check the state of the cluster's quorum disk\n";
     print "  --singlenode\n";
@@ -101,9 +104,10 @@ sub is_number {
 GetOptions ("nodes"       => \$arguments{nodes},
             "storages"    => \$arguments{storages},
             "openvz"      => \$arguments{openvz},
-            "containers"   => \$arguments{openvz},
+            "containers"  => \$arguments{openvz},
             "qemu"        => \$arguments{qemu},
-            "pools=s"       => \$arguments{pools},
+            "pools=s"     => \$arguments{pools},
+	    "ignoretemp"  => \$arguments{ignoretemp},
             "qdisk"       => \$arguments{qdisk},
             "singlenode"  => \$arguments{singlenode},
             "perfdata"    => \$arguments{perfdata},
@@ -866,7 +870,8 @@ if (defined $arguments{pools}) {
 	    foreach my $member( @$members ) {
 	        switch ($member->{type}) {
 	            case /openvz|lxc/ {
-                        unless (grep $_->{name} eq  $member->{name}, @monitoredOpenvz) {
+                        #unless (grep $_->{name} eq  $member->{name}, @monitoredOpenvz) {
+                        unless ( ( grep $_->{name} eq  $member->{name}, @monitoredOpenvz ) || ( $member->{template} eq 1 && defined $arguments{ignoretemp} ) ) {
                             $monitoredOpenvz[scalar(@monitoredOpenvz)] = (
                             {
                                 name         => $member->{name},
@@ -894,7 +899,8 @@ if (defined $arguments{pools}) {
 	                }
 	            }
 	            case "qemu" {
-	                unless (grep $_->{name} eq  $member->{name}, @monitoredQemus) {
+	                #unless (grep $_->{name} eq  $member->{name}, @monitoredQemus) {
+	                unless ( ( grep $_->{name} eq  $member->{name}, @monitoredQemus) || ( $member->{template} eq 1 && defined $arguments{ignoretemp} ) ) {
 		            $monitoredQemus[scalar(@monitoredQemus)] = (
 		            {
 			        name         => $member->{name},
