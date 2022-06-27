@@ -27,7 +27,7 @@
 # Authors & contributors
 #   Damien PIQUET damien.piquet@iutbeziers.fr || piqudam@gmail.com
 #   Alexey Dvoryanchikov github.com/dvoryanchikov
-#
+#   Nicolas Schneider
 
 use strict;
 # use warnings;
