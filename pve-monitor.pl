@@ -27,7 +27,7 @@
 # Authors & contributors
 #   Damien PIQUET damien.piquet@iutbeziers.fr || piqudam@gmail.com
 #   Alexey Dvoryanchikov github.com/dvoryanchikov
-#
+#   Nicolas Schneider
 
 use strict;
 # use warnings;
@@ -828,7 +828,7 @@ if (defined $arguments{qdisk}) {
             $qdisk{status} += $status{WARNING};
         }
 
-        print "Qdisk $rstatus{$qdisk{status}}\n$statusStr";
+        print "[$rstatus{$qdisk{status}}] Qdisk \n$statusStr";
         exit $qdisk{status};
     }
     else {
@@ -1205,7 +1205,7 @@ if (defined $arguments{nodes}) {
 
             if ($mnode->{status} ne $status{UNDEF}) {
                 $reportSummary .= 
-                    "$mnode->{name} $rstatus{$curNodeStatus} : " .
+                    "\\_ [$rstatus{$curNodeStatus}] $mnode->{name} : " .
                     "cpu $rstatus{$mnode->{cpu_status}} ($mnode->{curcpu}%), " . 
                     "mem $rstatus{$mnode->{mem_status}} ($mnode->{curmem}%), " . 
                     "disk $rstatus{$mnode->{disk_status}} ($mnode->{curdisk}%) " .
@@ -1217,7 +1217,7 @@ if (defined $arguments{nodes}) {
                   if $mnode->{status} eq $status{OK};
             }
             else {
-                $reportSummary .= "$mnode->{name} $rstatus{$status{CRITICAL}} : ".
+                $reportSummary .= "\\_ [$rstatus{$status{CRITICAL}}] $mnode->{name} : ".
                                   "node is out of cluster (dead?)" . $br;
             }
 
@@ -1227,7 +1227,7 @@ if (defined $arguments{nodes}) {
             $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
         else {
-            $reportSummary .= "$mnode->{name} " .
+            $reportSummary .= "\\_ $mnode->{name} " .
                               "is in status $rstatus{$status{UNKNOWN}}" . $br;
         }
     }
@@ -1235,7 +1235,7 @@ if (defined $arguments{nodes}) {
     $statusScore = $status{CRITICAL}
       if (( $statusScore > $status{UNKNOWN}) or ($statusScore < 0));
 
-    print "NODES $rstatus{$statusScore}  $workingNodes / " .
+    print "[$rstatus{$statusScore}] NODES $workingNodes / " .
           scalar(@monitoredNodes) . " working nodes" . $br . $reportSummary;
 
      $totalScore += $statusScore;
@@ -1253,8 +1253,8 @@ if (defined $arguments{nodes}) {
         if ($mstorage->{status} eq -1) {
             $statusScore += $status{CRITICAL};
 
-            $reportSummary .= "$mstorage->{name} ($mstorage->{node}) " .
-                              "$rstatus{$status{CRITICAL}}: " .
+            $reportSummary .= "\\_ [$rstatus{$status{CRITICAL}}] $mstorage->{name} ($mstorage->{node}) " .
+                              ": " .
                               "storage is on a dead node" . $br;
         }
         elsif ($mstorage->{status} ne $status{UNKNOWN}) {
@@ -1268,8 +1268,8 @@ if (defined $arguments{nodes}) {
                   if $mstorage->{curdisk} > $mstorage->{crit_disk};
             }
 
-            $reportSummary .= "$mstorage->{name} ($mstorage->{node}) " .
-                              "$rstatus{$mstorage->{status}} : " .
+            $reportSummary .= "\\_ [$rstatus{$mstorage->{status}}] $mstorage->{name} ($mstorage->{node}) " .
+                              ": " .
                               "disk $mstorage->{curdisk}%" . $br;
             $perfData .= "$mstorage->{name}-$mstorage->{node}::check_pve_storage::" .
                               "disk=$mstorage->{curdisk}%;$mstorage->{warn_disk};$mstorage->{crit_disk} ";
@@ -1281,7 +1281,7 @@ if (defined $arguments{nodes}) {
             $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
         else {
-            $reportSummary .= "$mstorage->{name} " .
+            $reportSummary .= "\\_ [$rstatus{$status{UNKNOWN}}] $mstorage->{name} " .
                               "is in status $rstatus{$status{UNKNOWN}}" . $br;
         }
     }
@@ -1289,7 +1289,7 @@ if (defined $arguments{nodes}) {
     $statusScore = $status{CRITICAL}
       if ($statusScore > $status{UNKNOWN});
 
-    print "STORAGE $rstatus{$statusScore} $workingStorages / " .
+    print "[$rstatus{$statusScore}] STORAGE $workingStorages / " .
           scalar(@monitoredStorages) . " working storages" . $br . $reportSummary;
     $totalPerfData .= "STORAGE::check_pve_storages::storages=$workingStorages;;;0;" . scalar(@monitoredStorages) . " " . $perfData;
 
@@ -1343,8 +1343,8 @@ if (defined $arguments{nodes}) {
                      $workingVms++;
 
                      $reportSummary .=
-                         "$mopenvz->{name} ($mopenvz->{node}) " .
-                         "$rstatus{$mopenvz->{status}} : " .
+                         "\\_ [$rstatus{$mopenvz->{status}}] $mopenvz->{name} ($mopenvz->{node}) " .
+                         ": " .
                          "cpu $rstatus{$mopenvz->{cpu_status}} ($mopenvz->{curcpu}%), " .
                          "mem $rstatus{$mopenvz->{mem_status}} ($mopenvz->{curmem}%), " .
                          "disk $rstatus{$mopenvz->{disk_status}} ($mopenvz->{curdisk}%) " .
@@ -1358,8 +1358,8 @@ if (defined $arguments{nodes}) {
                     $mopenvz->{status} = $status{CRITICAL};
                     $statusScore += $status{CRITICAL};
 
-                    $reportSummary .= "$mopenvz->{name} " .
-                        "$rstatus{$mopenvz->{status}} : " .
+                    $reportSummary .= "\\_ [$rstatus{$mopenvz->{status}}] $mopenvz->{name} " .
+                        ": " .
                         "VM is $mopenvz->{alive}" . $br;
                 }
             }
@@ -1372,7 +1372,7 @@ if (defined $arguments{nodes}) {
             $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
         else {
-            $reportSummary .= "$mopenvz->{name} " .
+            $reportSummary .= "\\_ [$rstatus{$status{UNKNOWN}}] $mopenvz->{name} " .
                               "is in status $rstatus{$status{UNKNOWN}}" . $br;
 
             $statusScore += $status{UNKNOWN};
@@ -1382,7 +1382,7 @@ if (defined $arguments{nodes}) {
     $statusScore = $status{CRITICAL}
       if ($statusScore > $status{UNKNOWN});
 
-    print "OPENVZ $rstatus{$statusScore} $workingVms / " .
+    print "[$rstatus{$statusScore}] CONTAINER $workingVms / " .
           scalar(@monitoredOpenvz) . " working VMs" . $br . $reportSummary;
     $totalPerfData .= "OPENVZ::check_pve_vms::vmcount=$workingVms;;;0;" . scalar(@monitoredOpenvz) . " " . $perfData;
 
@@ -1434,7 +1434,7 @@ if (defined $arguments{nodes}) {
                 $workingVms++;
 
                 $reportSummary .=
-                    "$mqemu->{name} ($mqemu->{node}) $rstatus{$mqemu->{status}} : " .
+                    "\\_ [$rstatus{$mqemu->{status}}] $mqemu->{name} ($mqemu->{node}) : " .
                     "cpu $rstatus{$mqemu->{cpu_status}} ($mqemu->{curcpu}%), " .
                     "mem $rstatus{$mqemu->{mem_status}} ($mqemu->{curmem}%), " .
                     "disk $rstatus{$mqemu->{disk_status}} ($mqemu->{curdisk}%) " .
@@ -1447,7 +1447,7 @@ if (defined $arguments{nodes}) {
             else {
                 $mqemu->{status} = $status{CRITICAL};
 
-                $reportSummary .= "$mqemu->{name} $rstatus{$mqemu->{status}} : " .
+                $reportSummary .= "\\_ [$rstatus{$mqemu->{status}}] $mqemu->{name} : " .
                                   "VM is $mqemu->{alive}" . $br;
                 $statusScore += $status{CRITICAL};
                 $mqemu->{status} = $status{CRITICAL};
@@ -1460,7 +1460,7 @@ if (defined $arguments{nodes}) {
             $statusScore++ if $statusScore eq $status{UNKNOWN};
         }
         else {
-            $reportSummary .= "$mqemu->{name} " .
+            $reportSummary .= "\\_ [$rstatus{$status{UNKNOWN}}] $mqemu->{name} " .
                               "is in status $rstatus{$status{UNKNOWN}}" . $br;
 
             $statusScore += $status{UNKNOWN};
@@ -1470,7 +1470,7 @@ if (defined $arguments{nodes}) {
     $statusScore = $status{CRITICAL}
       if ($statusScore > $status{UNKNOWN});
 
-    print "QEMU $rstatus{$statusScore} $workingVms / " .
+    print "[$rstatus{$statusScore}] QEMU $workingVms / " .
           scalar(@monitoredQemus) . " working VMs" . $br .
           $reportSummary;
     $totalPerfData .= "QEMU::check_pve_vms::vmcount=$workingVms;;;0;" . scalar(@monitoredQemus) . " " . $perfData;
